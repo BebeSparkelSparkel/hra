@@ -1,6 +1,6 @@
 # Human Readable Archive (hra)
 
-A file that contains directory information and file contents and meta-data.
+A file that contains directory information, file contents, and meta-data.
 
 Example:
 
@@ -8,19 +8,19 @@ Example:
 Human Readable
 Archive
 0.1
-meta= comment# redefine~ escape/ assignment= continuation\ opener" closer"
+meta= comment# redefine~ escape\ assignment= continuation\ opener" closer" encoding
 # The first two lines are more expressive than they seem. They define the type of whitspace character and newline string used in the rest of the file.
-# The second line holds the file format version.
-# - Newline string used the rest of the file. The character or string after the version digits and before the prefix definitions.
-# The second line defines the:
+# The third line holds the file format version.
+# The forth line defines the:
 # - required meta string prefix is assigned to `=`
 # - optional comment string prefix is assigned to `#`
 # - optional redefine string prefix is assigned to `~`
-# - optional escape string prefix is assigned to `/`
+# - optional escape string prefix is assigned to `\`
 # - optional attribute assignment string is assigned to `=`
 # - optional line continuation string is assigned to `\`
 # - optional opener for contiguous strings is assigned to `"`
 # - doubly optional closer of contiguous strings is assignd to '"'
+# - optional file encoding prefix is assigned to "$"
 
 # Explicitly define permissions for a directory
 = / perm=rwxr-xr-x user=root group=wheel
@@ -147,35 +147,55 @@ MIT License...
 @ /multiple/line/ \
     perm=rwxrwxrwx \
     atime=2024/11/4-10:47:44
+
+; Multiple encodings (applied in order left to right)
+@ /compressed.dat $zstd $base64
+H4sIAAAAAAAAA0vLz1FIy8xLAQBuYJ0LDQAAAA==
 ```
 
 ## Format
 
 ### Header
 
-The header is two lines and defines how to how to interpret the rest of the file.
+The header is four lines and defines how to how to interpret the rest of the file.
 
-#### First Line
+#### First and Second Line
 
-The first line must start with `hra`. Then:
-1. one character to be used as the space (and what this documentation refers to as *space*) character for the rest of the file
-1. the format version (e.g. `0.1`) which contains
-    1. the major version digits (version numbers us base 10 digits)
-    1. a `.` separator
-    1. the minor version digits
-1. the newline character or string for the rest of the file
+The first line must start with the string `Human`. Then:
+1. One character to be used as the space character for the rest of the file
+    - This documentation refers to this character as **space**
+    - Typically, it is the *space* `0x20` or *tab* `0x09` character. Tab may be a good choice if your paths contain many `0x20` *spaces*.
+1. The string `Readable`
+1. The character string after `Readable` and before `Archive` defines the newline string for the rest of the document
+1. The string `Archive`
 
-#### Second Line
+#### Third (Version) Line
 
-The second line must contain the prefix string assignments.
-- `meta`: Required. The string that indicates the line specifies a new file or directory is being defined.
-- `comment`: Optional. The string that indicates the line is a comment.
-- `redefine`: Optional. The string that indicates the line specifies a prefix redefinition.
-- `escape`: Optional. The string that allows the prefixes to begin the line of a file data.
-- `assignment`: Optional. The string that separates the attribute's name and value.
-- `continuation`: Optional. The string that appears at the end of a line which indicates a line continuation.
-- `opener`: Optional. The string that is prefixed to a contiguous string that only ends with the closer string.
-- `closer`: Doubly Optional. If undefined, its value is the same as `opener`. It is also the only thing the escape prefix can escape in the contiguous string.
+The third line holds the hra file format version (e.g. `0.1`) which contains
+
+The line contains:
+1. the major version digits (version numbers us base 10 digits)
+1. a `.` separator
+1. the minor version digits
+
+View the (Format Version)[#format-version) section for the version meaning.
+
+#### Fourth (Prefix Assignment) Line
+
+The line must contain the string assignments:
+- `meta`: Required. The string that indicates the line specifies a new file or directory is being defined. Must be assigned a value.
+- `comment`: Optional. The string that indicates the line is a comment. Can be indicated without value if `redefine` is specified and assigned.
+- `redefine`: Optional. The string that indicates the line specifies a prefix redefinition. If indicated, must be assigned a value in this line but may be undefined in later redefinitions.
+- `escape`: Optional. The string that allows the prefixes to begin the line of a file data. Can be indicated without value if `redefine` is specified and assigned.
+- `assignment`: Optional. The string that separates the attribute's name and value. Can be indicated without value if `redefine` is specified and assigned.
+- `continuation`: Optional. The string that appears at the end of a line which indicates a line continuation. Can be indicated without value if `redefine` is specified and assigned.
+- `opener`: Optional. The string that is prefixed to a contiguous string that only ends with the closer string. Can be indicated without value if `redefine` is specified and assigned.
+- `closer`: Doubly Optional. If undefined, its value is the same as `opener`. It is also the only thing the escape prefix can escape in the contiguous string. Can be indicated without value if `redefine` is specified and assigned.
+- `encoding`: Optional. The string that indicates content encoding for a file. If undefined, content encoding cannot be specified. Can be indicated without value if `redefine` is specified and assigned.
+
+Parser Capability Requirements:
+- All prefixes that will be used anywhere in the file MUST be indicated in this line for parser capability checks
+- Any attempt to use or redefine a prefix that was not indicated in this line MUST result in a parse error
 
 To define the prefixes:
 1. The prefix name
@@ -183,7 +203,7 @@ To define the prefixes:
 1. The prefix string. It may not contain spaces.
 1. Optionally, to have more prefix assignments the following can be repeated:
     1. A single space
-    2. More prefix assignments as described in the steps above.
+    1. More prefix assignments as described in the steps above.
 
 For example, `meta= comment// escape123` defines the:
 - Meta string to be `=`
@@ -203,20 +223,26 @@ The definition at a minimum requires the following in order on the same line:
 1. The meta string
 1. An optional directory context string, which contains no space
 1. A single space
-1. Optionally, the opener string
-1. A POSIX path. If referencing an already defined directory context, the path must not begin with a forward slash
-1. If opened, the closer string
+1. A POSIX path, optionally bracketed
+    - If referencing an already defined directory context, the path must not begin with a forward slash
+    - If not bracketed, spaces may not be used
 
 If the POSIX path ends with trailing single forward slash, a directory is specified and not a file.
+
+If the `encoding` prefix is defined, zero or more encodings can be specified after the path:
+1. A single space
+1. The encoding prefix string
+1. The encoding name string, optionally bracketed
+1. Optionally, steps 1-2 can be repeated for additional encodings which are applied left to right
 
 Optionally (there are no required attributes), attributes can be associated with the definition with:
 1. At least one leading spaces
 1. Optionally, to allow multi-line attribute assignments the following the following can be included:
     1. The line continuation string
     1. Zero or more spaces
-1. The attribute name string
+1. The attribute name string, optionally bracketed
 1. The attribute assignment string
-1. The attribute value string
+1. The attribute value string, optionally bracketed
 1. Optionally, the above steps can be repeated for more attribute assignments
 
 #### Data Lines
@@ -250,15 +276,168 @@ The redefinition prefix is defined with the `redefine` prefix string assignment.
 If undefined, redefinitions cannot be used.
 
 Redefintions are indicated by a line starting with the redefinition string.
-There can be multiple
+There can be multiple redefinitions in the same line.
+Beyond redefining, 
 
-The redefinition prefix is 
+The redefinition prefix is Claude this
+
+## Character Encoding
+
+The Human Readable Archive format uses UTF-8 character encoding without Byte Order Mark (BOM). The absence of BOM is required to ensure the file begins directly with "Human" as specified in the header requirements. All implementations must support UTF-8 encoding to ensure universal compatibility and proper handling of international characters.
+
+## Bracketing
+
+The HRA format supports bracketing of strings to allow the inclusion of spaces and other special characters. A bracketed string is one that begins with the `opener` string and ends with the `closer` string. If the `closer` string is undefined in the prefix assignments, the `opener` string is used as both the opening and closing bracket.
+
+### Common Use Cases
+
+Bracketing is particularly useful for:
+- Paths containing spaces
+- Paths containing special characters that might otherwise require escaping
+- Paths containing the meta, comment, or redefine prefix strings
+- Any string that needs to preserve its exact formatting, including whitespace
+
+### Implementation and Behavior
+
+Required behavior when a string is bracketed:
+- Must be opened
+- Spaces and other special characters are allowed within the string
+- The string is treated as a contiguous unit
+- The `closer` string can be escaped using the escape prefix to include it within the string
+- No other characters need to be escaped within the bracketed string
+- Once a string is opened, it must be closed before the end of the line
+
+Suggested practices for bracketing:
+- Choose bracketing strings that minimize conflicts with common path characters
+- Use short strings (1-2 characters) for readability
+
+### Examples
+
+Given prefix assignments:
+```
+opener" closer" escape\    # Double quote as both opener and closer, backslash as escape
+```
+
+Valid bracketed paths:
+```
+= "Program Files/example.txt"     # Spaces allowed in path
+= "My Documents/report.doc"       # Another space-containing path
+= "Users/John\"Smith/file.txt"    # Escaped quote within path
+```
+
+Given prefix assignments with different opener and closer:
+```
+opener< closer> escape\      # Angle brackets as opener/closer, backslash as escape
+```
+
+Valid bracketed paths:
+```
+= <C:/Users/John Doe/file.txt>    # Spaces allowed in path
+= <data files/raw data.csv>       # Multiple spaces handled
+= <data\>files/example.txt>       # Escaped > within path
+```
+
+## Format Version
+
+The file format employs a two-number versioning scheme (MAJOR.MINOR) to clearly
+communicate compatibility and feature changes to both developers and software.
+The MAJOR number increments when structural changes make the format
+incompatible with previous versions—allowing software to quickly determine if
+it can process the file.  The MINOR number increments when new features are
+added while maintaining backward compatibility; this enables older software to
+still read newer files, even if it cannot utilize all features.  This approach
+helps developers quickly understand how different versions relate to each other
+and gives software clear rules for handling files of different versions.
 
 ## Directory Context
 
-## Directory Inheritance
+Directory context is a feature that allows for more concise file and directory definitions when working with deeply nested paths. It uses context modifiers with the meta prefix to establish and reference directory contexts, making it easier to organize related files.
 
-How a relative path inherits a directory path.
+### Context Modifiers
+
+Context modifiers are single characters that can be appended to the meta prefix to establish or reference directory contexts. While the examples show `^`, `-`, and `*`, any character can be used as a context modifier. The creator of the archive can choose whatever characters make sense for their use case.
+
+### Usage Rules
+
+1. Creation of Context:
+   - `={modifier}` followed by a full path creates a new context identified by that modifier
+   - The path must be absolute (start with `/`)
+   - Multiple contexts can exist simultaneously using different modifiers
+
+1. Reference of Context:
+   - `={modifier}` followed by a relative path uses the previously established context
+   - The relative path is appended to the context path
+   - The path must not begin with a forward slash
+
+1. Context Redefinition:
+   - An existing context can be redefined by creating a new context with the same modifier using the same syntax as a creation of context
+   - After redefinition, all subsequent references to that context will use the new path
+   - Redefinition does not affect previously defined files/directories
+
+1. Path Resolution:
+   - When using a context, the path provided is appended to the context path
+   - The resulting path must be normalized (no `..` or `.` references)
+   - Paths used with contexts must not begin with a forward slash
+
+### Examples
+
+```hra
+# Create a context using '^' as modifier
+=^ /contains/the/below/
+
+# Use the '^' context
+=^ README.md  # resolves to /contains/the/below/README.md
+
+# Create another context using '$' as modifier
+=$ /different/path/
+=$ file.txt   # resolves to /different/path/file.txt
+
+# Create nested context using '@' as modifier
+=^ /root/project/
+=^@ src/      # creates '@' context at /root/project/src/
+=@ main.c     # resolves to /root/project/src/main.c
+
+# Redefine an existing context
+=^ /new/root/path/     # redefines '^' context
+=^ file.txt            # now resolves to /new/root/path/file.txt
+
+# Previous files defined under old context remain unchanged
+# but new files use the redefined context
+```
+
+### Creating Nested Contexts
+
+Contexts can be created relative to other contexts by combining modifiers:
+- First modifier references the existing context
+- Second modifier creates the new context
+- Both modifiers can be any valid characters
+
+Example:
+```hra
+=^ /base/path/         # Create primary context
+=^@ source/           # Create '@' context under '^' -> /base/path/source/
+=^# tests/            # Create '#' context under '^' -> /base/path/tests/
+=@ code.c             # Uses '@' context -> /base/path/source/code.c
+=# test.c             # Uses '#' context -> /base/path/tests/test.c
+```
+
+### Invalid Usage Examples
+
+```hra
+# Invalid - relative path without context
+= relative/path.txt
+
+# Invalid - context path starting with slash when using context
+=^ /root/dir/
+=^ /other.txt        # Invalid - cannot use absolute path with context
+
+# Invalid - attempting to navigate above context
+=^ /root/dir/
+=^ ../file.txt      # Invalid - tries to go above context
+
+# Invalid - undefined context
+=@ file.txt         # Invalid - '@' context not yet defined
+```
 
 ## Attribute Inheritance Chain
 
@@ -269,6 +448,242 @@ If no ancestor directories specify attributes, it examines child directories and
 Finally, if no attributes can be inherited through these means, the system falls back to default values: `rw-r--r--` and `root:root` for files, and `rwxr-xr-x` and `root:root` for directories.
 Each attribute (permissions, user, group) is inherited independently, though certain attributes like symlink targets must always be explicitly specified.
 
+## Encoded Data
+
+Encoded data in the HRA format represents how the content is stored within the archive itself, not the original file's encoding. When data is extracted from the archive, the implementation decodes it back to its original form. This is similar to how base64 is used in email attachments - the actual file isn't base64 encoded, but its storage/transmission format is.
+
+An encoding is specified with the `encoding` prefix.
+
+Do not confuse a file that actually contains encoded data with the archived encoded data. If the file contains encoded data, for example base64, then an encoding should not be specified.
+
+Common encodings:
+- `base64` - Common binary encoding.
+- `base32` - Common binary encoding.
+- `hex`    - Common binary encoding.
+- `escape` - Custom text encoding called (Escaped Encoding)[#escaped-encoding].
+- `ascii`  - Common text encoding.
+- `utf8`   - Common text encoding. The default encoding. Only required implementation.
+
+### Storing Binary Data
+
+Raw binary data cannot be stored in the file since it will be mangled by text translations.
+To store binary data it must be encoded.
+Only one encoding can be applied.
+
+Examples
+```hra
+# a base64 encoded file that needs to be decoded before it can be used.
+= binary.dat $base64
+SGVsbG8gV29ybGQ=
+
+= compressed.bin.zstd $base64
+KLUv/QRYWQAAaGVsbG8Ed29ybGQCAXf6qXgA
+```
+### Escaped Encoding
+
+Escaped encoding is a customized UTF-8 encoding for this archive that allows for:
+- common control characters to be represented with printable characters
+- all characters to be specified with an hex value
+
+The backslash `\` is known as the escape character, and when combined with another character it forms an escape sequence.
+Claude we need to figure out how this interacts with actual newline characters.
+
+The escaped characters will be decoded to their actual values. The supported escapes are
+  - `\0` - Null character (0x00)
+  - `\a` - Bell/Alert (0x07)
+  - `\b` - Backspace (0x08)
+  - `\t` - Tab (0x09)
+  - `\n` - Newline (0x0A)
+  - `\v` - Vertical tab (0x0B)
+  - `\f` - Form feed (0x0C)
+  - `\r` - Carriage return (0x0D)
+  - `\\` - Backslash (0x5C)
+  - `\xhh` - Hexadecimal escape (where hh is any hex value)
+
+## Attribute Standards
+
+The fourth header line can optionally include `standard=` to specify the attribute standard being used. Common standards include:
+
+### File System
+
+#### Time (`standard=time`)
+
+Values are formatted in ISO 8601 with required timezone
+
+Attributes
+- `created`: Creation timestamp
+- `modified`: Content modification timestamp
+- `accessed`: Last access timestamp
+- `changed`: Metadata change timestamp
+
+Example
+```hra
+= /etc/config.txt modified=2024-11-12T15:30:00Z
+```
+
+#### POSIX (`standard=posix`)
+
+Core POSIX attributes that any POSIX-compliant filesystem must support:
+
+Attributes:
+- `posix_owner`: POSIX username
+- `posix_group`: POSIX group name
+- `posix_mode`: POSIX-style permission string (e.g. `rwxr-xr-x`)
+- `posix_acl`: POSIX.1e ACL format
+
+Example:
+```hra
+= /etc/config.txt \
+    posix_mode=rw-r----- \
+    posix_owner=admin \
+    posix_group=security
+```
+
+#### Single Unix Specification, Version 4 (`standard=susv4`)
+
+Unix features.
+
+Attributes:
+- `susv4_xattr`: Extended attributes (`name=value` pairs)
+- `susv4_caps`: POSIX capabilities text format
+
+Example:
+```hra
+= /etc/config.txt susv4_xattr=security.selinux=system_u:object_r:config_t:s0
+```
+
+#### HFS+ (`standard=hfs+`)
+Implements POSIX compliance plus HFS+ specific features:
+- `hfs_flags`: HFS-specific file flags (hex)
+- `hfs_xattr`: HFS-specific extended attributes
+- `hfs_rsrc`: Resource fork data (encoded)
+- `hfs_type`: File type code (4 chars)
+- `hfs_creator`: Creator code (4 chars)
+
+Example:
+```hra
+= / standard=hfs+
+= /Applications/App.app/Contents/Info.plist \
+    hfs_flags=0x00000040 \
+    hfs_type=TEXT \
+    hfs_creator=MSFT
+```
+
+#### NTFS 3.1 (standard=ntfs3.1)
+
+Attributes
+- ntfs_owner: Windows account name/SID
+- ntfs_attrs: Windows attributes string (e.g. RHSA)
+- ntfs_acl: Windows SDDL format
+- ntfs_ads: Alternate data streams (name:size pairs)
+- ntfs_reparse: Reparse point data (hex)
+- ntfs_compressed: NTFS compression (true/false)
+- ntfs_encrypted: NTFS encryption (true/false)
+- ntfs_sparse: Sparse file (true/false)
+
+Example:
+```hra
+= /Config/App/settings.ini \
+    ntfs_attrs=RH \
+    ntfs_owner=SYSTEM \
+    ntfs_acl=D:PAI(A;;FA;;;SY)(A;;FA;;;BA)
+```
+
+#### FAT32 (`standard=fat32`)
+
+Attributes
+- `fat_name`: 8.3 filename (short name)
+- `fat_attrs`: DOS attribute flags (string containing any of):
+  - `R`: Read-only
+  - `H`: Hidden
+  - `S`: System
+  - `A`: Archive
+  - `D`: Directory
+  - `V`: Volume label
+- `fat_case`: Case information:
+  - `lower_base`: Lowercase base name
+  - `lower_ext`: Lowercase extension
+  - `mixed`: Mixed case preserved
+- `fat_lfn`: Long filename (if different from path name)
+
+Example:
+```
+= / standard=time,fat32
+= /DOCUMENT/REPORT.TXT \
+    fat_name=REPORT.TXT \
+    fat_attrs=A \
+    fat_case=lower_base,lower_ext \
+    fat_lfn=Quarterly Report.txt \
+    created=2024-11-12T15:30:00Z \
+    accessed=2024-11-12 \
+    modified=2024-11-12T15:30:00Z
+```
+
+##### Implementation Notes
+
+FAT32 Specific Considerations:
+- Time resolution is limited (2-second for modify time, date-only for access)
+- Case preservation depends on filesystem implementation
+- 8.3 names must be stored for compatibility
+- Directory entries may have both short and long names
+
+Standard Limitations:
+- FAT32 doesn't support ownership
+- Access time is date-only
+- No permission bits or ACLs
+- Limited attribute set compared to modern filesystems
+
+#### Multi-Standard Example
+```hra
+standard=posix,hfs+,ntfs3.1
+
+= /shared/config.txt \
+    posix_mode=rw-r----- \
+    posix_owner=admin \
+    posix_group=wheel \
+    hfs_flags=0x00000040 \
+    ntfs_attrs=RH \
+    ntfs_owner=Administrator \
+    modified=2024-11-12T15:30:00Z \
+    ntfs_acl=D:PAI(A;;FA;;;SY)(A;;FA;;;BA)
+```
+
+#### Implementation Notes
+
+1. POSIX Inheritance:
+   - Standards implementing POSIX compliance inherit all `posix_*` attributes
+   - POSIX attributes are interpreted according to the standard's POSIX compliance level
+   - Standards may extend but not modify
+
+### Archive Validation
+
+Files can include checksums for validation:
+
+Example
+```
+checksum=sha256=8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92
+```
+
+Attribute Grammar
+```ebnf
+checksum-attribute = [opener] "checksum" [closer] assignment [opener] [checksum-type] [closer] assignment [opener] checksum [closer]
+checksum = {"0".."9" | "a".."f"}
+```
+
+## Duplicate Paths
+
+The HRA format specification requires path uniqueness.
+Path uniqueness should be verified during a post-parse integrity check.
+
+When duplicate paths are detected during validation:
+1. The validator should report:
+  - The duplicate path
+  - The line numbers of all occurrences
+  - Whether the duplicates have identical or different content/attributes
+1. Suggested recovery methods:
+  a. If the CST for the paths are the same, keep the first occurrence (recommended for automated recovery)
+  a. Rename duplicates with a suffix (e.g. file_0.txt, file_1.txt, ...)
+
 ## Preprocessors
 
 The HRA format uses preprocessor verification through removal markers.
@@ -277,153 +692,136 @@ If any markers remain, the HRA parser rejects the file as incompletely processed
 
 This provides two key benefits:
 1. Guaranteed preprocessing completion - unprocessed files are invalid
-1. Enforced preprocessing order - markers must be removed in sequence
+1. Enforced preprocessing order - markers must be removed in sequence since earlier preprocessors will fail if they find markers that should come after them
 
-The verification is achieved by embedding markers after the header that preprocessors must remove. Each marker:
+The verification is achieved by embedding markers before the header that preprocessors must remove. Each marker:
 - Has a unique random suffix to prevent collisions
 - Names its required preprocessor
 - Must be removed by its preprocessor for the file to be valid
-
-This approach works with any preprocessor that can:
-- Preserve non-processed lines unchanged
-- Remove specific lines
-- Process the file as text
+- Must appear before the "Human" string that starts the header
 
 Each preprocessor needs to:
+1. Verify no markers that should come after it are present
 1. Find and remove its specific marker
-1. Leave all other marker lines unchanged
-
-### Examples
-
-1. **sed**
-```hra
-hra 0.1
-meta= comment# redefine~ escape/ assignment= continuation\ opener" closer"
-REQUIRES_SED_PREPROCESSING_x394nv84
-```
-```bash
-sed '/REQUIRES_SED_PREPROCESSING_x394nv84/d' input.hra > output.hra
-```
-
-2. **awk**
-```hra
-hra 0.1
-meta= comment# redefine~ escape/ assignment= continuation\ opener" closer"
-REQUIRES_AWK_PREPROCESSING_k85m2p91
-```
-```bash
-awk '!/REQUIRES_AWK_PREPROCESSING_k85m2p91/' input.hra > output.hra
-```
-
-3. **perl**
-```hra
-hra 0.1
-meta= comment# redefine~ escape/ assignment= continuation\ opener" closer"
-REQUIRES_PERL_PREPROCESSING_j73h1m52
-```
-```perl
-perl -ne 'print unless /REQUIRES_PERL_PREPROCESSING_j73h1m52/' input.hra > output.hra
-```
-
-4. **python**
-```hra
-hra 0.1
-meta= comment# redefine~ escape/ assignment= continuation\ opener" closer"
-REQUIRES_PYTHON_PREPROCESSING_q62k9v37
-```
-```python
-with open('input.hra') as infile, open('output.hra', 'w') as outfile:
-    for line in infile:
-        if 'REQUIRES_PYTHON_PREPROCESSING_q62k9v37' not in line:
-            outfile.write(line)
-```
-
-5. **cpp** (C Preprocessor)
-```hra
-hra 0.1
-meta= comment# redefine~ escape/ assignment= continuation\ opener" closer"
-REQUIRES_CPP_PREPROCESSING_w51t8x26
-```
-```bash
-# Using cpp with a header that undefines the marker
-echo '#define REQUIRES_CPP_PREPROCESSING_w51t8x26' > remove_marker.h
-cpp -include remove_marker.h input.hra output.hra
-```
-
-6. **m4**
-```hra
-hra 0.1
-meta= comment# redefine~ escape/ assignment= continuation\ opener" closer"
-REQUIRES_M4_PREPROCESSING_n40r7u15
-```
-```bash
-# Using m4 with a definition that removes the marker
-echo 'define(`REQUIRES_M4_PREPROCESSING_n40r7u15',`')' > remove_marker.m4
-m4 remove_marker.m4 input.hra > output.hra
-```
-
-7. **envsubst**
-```hra
-hra 0.1
-meta= comment# redefine~ escape/ assignment= continuation\ opener" closer"
-REQUIRES_ENVSUBST_PREPROCESSING_h29q6f84${REMOVE_MARKER}
-```
-```bash
-REMOVE_MARKER= envsubst < input.hra > output.hra
-```
-
-8. **jq** (for JSON processing sections)
-```hra
-hra 0.1
-meta= comment# redefine~ escape/ assignment= continuation\ opener" closer"
-REQUIRES_JQ_PREPROCESSING_b18p5d73
-```
-```bash
-# Using jq with a wrapper script
-jq_wrapper() {
-    local tmp=$(mktemp)
-    grep -v 'REQUIRES_JQ_PREPROCESSING_b18p5d73' "$1" > "$tmp"
-    mv "$tmp" "$2"
-}
-jq_wrapper input.hra output.hra
-```
-
-9. **template (custom)**
-```hra
-hra 0.1
-meta= comment# redefine~ escape/ assignment= continuation\ opener" closer"
-REQUIRES_TEMPLATE_PREPROCESSING_v84m3c62
-```
-```python
-# Custom template processor
-def process_template(infile, outfile):
-    with open(infile) as f, open(outfile, 'w') as out:
-        for line in f:
-            if 'REQUIRES_TEMPLATE_PREPROCESSING_v84m3c62' not in line:
-                # Process template directives
-                out.write(process_line(line))
-```
+1. Leave all subsequent preprocessor markers unchanged
 
 ### Key Implementation Notes
 
 1. **Error Handling**
-   - Preprocessors should verify their marker exists before removing it
-   - Should fail if marker not found
-   ```bash
-   # Example error check in bash
-   if ! grep -q "REQUIRES_XXX_PREPROCESSING" input.hra; then
-       echo "Error: Marker not found" >&2
-       exit 1
-   fi
-   ```
+   - Preprocessors should verify that no markers that should come after them exist
+   - Should fail if incorrect order detected or own marker not found
 
-2. **Marker Uniqueness**
+1. **Marker Uniqueness**
    - Use sufficiently random strings (e.g. 8+ hex chars)
    - Include preprocessor name to avoid confusion
    - Consider including version info if relevant
 
-3. **Line Preservation**
+1. **Line Preservation**
    - Most preprocessors should preserve line numbers
    - Important for error reporting
    - Some may need wrapper scripts to ensure this
+
+1. **Header Validation**
+   - By placing markers before the "Human" string, any unprocessed markers will prevent the file from being recognized as a valid HRA file
+   - This provides immediate validation failure rather than requiring a full file parse
+
+1. **Processing Order**
+   - Order is enforced simply by the sequence of marker lines
+   - Each preprocessor must verify no markers that should come after it are present
+   - Makes it impossible to run preprocessors out of order without adding complexity to the markers themselves
+
+### Examples
+
+Here's a sequence of preprocessors that must run in order: template  cpp  sed
+
+1. **Initial file state**
+```hra
+REQUIRES_TEMPLATE_PREPROCESSING_v84m3c62
+REQUIRES_CPP_PREPROCESSING_w51t8x26
+REQUIRES_SED_PREPROCESSING_x394nv84
+Human Readable
+Archive
+0.1
+meta= comment# redefine~ escape/ assignment= continuation\ opener" closer"
+```
+
+**template processor**
+```python
+def process_template(infile, outfile):
+    with open(infile) as f:
+        first_line = f.readline().strip()
+        if first_line != 'REQUIRES_TEMPLATE_PREPROCESSING_v84m3c62':
+            raise ValueError("Template must be first preprocessor")
+            
+        with open(outfile, 'w') as out:
+            for line in f:
+                out.write(process_line(line))
+```
+
+1. **After template processing**
+```hra
+REQUIRES_CPP_PREPROCESSING_w51t8x26
+REQUIRES_SED_PREPROCESSING_x394nv84
+Human Readable
+Archive
+0.1
+meta= comment# redefine~ escape/ assignment= continuation\ opener" closer"
+```
+
+**cpp processor**
+```bash
+# function can be used to wrap other preprocessors
+run_if_first() {
+    local marker="$1"
+    local cmd="$2"
+    shift 2
+    
+    if [ "$(head -n1 input.hra)" = "$marker" ]; then
+        "$cmd" "$@"
+    else
+        echo "Error: Expected $marker as first line" >&2
+        exit 1
+    fi
+}
+
+run_if_first "REQUIRES_CPP_PREPROCESSING_w51t8x26" cpp -DREQUIRES_CPP_PREPROCESSING_w51t8x26 input.hra output.hra
+```
+
+1. **After cpp processing**
+```hra
+REQUIRES_SED_PREPROCESSING_x394nv84
+Human Readable
+Archive
+0.1
+meta= comment# redefine~ escape/ assignment= continuation\ opener" closer"
+```
+
+**sed processor**
+```bash
+marker="REQUIRES_SED_PREPROCESSING_x394nv84"
+sed "1{/^$marker\$/!q1};/$marker/d" input.hra > output.hra
+```
+
+1. **After sed processing (final state)**
+```hra
+Human Readable
+Archive
+0.1
+meta= comment# redefine~ escape/ assignment= continuation\ opener" closer"
+```
+
+## Security Considerations
+
+Only YOU can prevent archive vulnerabilities! 
+
+Key security considerations:
+1. Always validate paths for directory traversal attempts
+2. Verify file permissions before extraction
+3. Check for symlink attacks
+4. Validate all attribute values
+5. Implement size limits appropriate for your use case
+6. Scan content for malware before extraction
+7. Verify checksums when provided
+8. Consider the implications of encoded content
+9. Validate all UTF-8 sequences
 
