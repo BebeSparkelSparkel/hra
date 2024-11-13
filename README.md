@@ -8,19 +8,21 @@ Example:
 Human Readable
 Archive
 0.1
-meta= comment# redefine~ escape\ assignment= continuation\ opener" closer" encoding
+meta= comment# redefine~ escape\ assignment= continuation\ opener" closer" encoding$ decode@ terminator_
 # The first two lines are more expressive than they seem. They define the type of whitspace character and newline string used in the rest of the file.
 # The third line holds the file format version.
 # The forth line defines the:
-# - required meta string prefix is assigned to `=`
-# - optional comment string prefix is assigned to `#`
-# - optional redefine string prefix is assigned to `~`
-# - optional escape string prefix is assigned to `\`
-# - optional attribute assignment string is assigned to `=`
-# - optional line continuation string is assigned to `\`
-# - optional opener for contiguous strings is assigned to `"`
+# - required meta operator is assigned to `=`
+# - optional comment operator is assigned to `#`
+# - optional redefine operator is assigned to `~`
+# - optional escape operator is assigned to `\`
+# - optional attribute assignment operator assigned to `=`
+# - optional line continuation operator assigned to `\`
+# - optional opener operator for contiguous strings is assigned to `"`
 # - doubly optional closer of contiguous strings is assignd to '"'
-# - optional file encoding prefix is assigned to "$"
+# - optional file encoding operator is assigned to "$"
+# - optional file decoding operator is assigned to "@"
+# - optional file terminator operator is assigned to "_"
 
 # Explicitly define permissions for a directory
 = / perm=rwxr-xr-x user=root group=wheel
@@ -67,7 +69,7 @@ nopqrstuvwxyz
 
 # An executable file
 = "/texts/shakespere/Player and the Pipe" perm=rwxrwxr-x user=sue group=sue
-# This is a comment. The below escape character escapes the comment prefix so it is included in the file data.
+# This is a comment. The below escape character escapes the comment operator so it is included in the file data.
 /#!/bin/bash
 RED='\033[0;31m'; GREEN='\033[0;32m'; BLUE='\033[0;34m'; NC='\033[0m'
 play_note() { echo -e "${BLUE} Playing note: $1 ${NC}"; sleep 0.5; }
@@ -135,9 +137,9 @@ void test() {}
 MIT License...
 
 ~ meta@ comment; redefine
-; This is a comment. The above redefines the meta and comment prefix characters to be `@` and `;`
-; It also undefines the redefine prefix which can longer be used.
-; The comment prefix character can also be undefined in the same way.
+; This is a comment. The above redefines the meta and comment operators characters to be `@` and `;`
+; It also undefines the `redefine` operator which can longer be used.
+; The comment operator character can also be undefined in the same way.
 
 @ /files/and/directories/are/now/defined/with/the/@/prefix.txt
 
@@ -180,36 +182,37 @@ The line contains:
 
 View the (Format Version)[#format-version) section for the version meaning.
 
-#### Fourth (Prefix Assignment) Line
+#### Fourth (Operator Assignments) Line
 
-The line must contain the string assignments:
-- `meta`: Required. The string that indicates the line specifies a new file or directory is being defined. Must be assigned a value.
-- `comment`: Optional. The string that indicates the line is a comment. Can be indicated without value if `redefine` is specified and assigned.
-- `redefine`: Optional. The string that indicates the line specifies a prefix redefinition. If indicated, must be assigned a value in this line but may be undefined in later redefinitions.
-- `escape`: Optional. The string that allows the prefixes to begin the line of a file data. Can be indicated without value if `redefine` is specified and assigned.
-- `assignment`: Optional. The string that separates the attribute's name and value. Can be indicated without value if `redefine` is specified and assigned.
-- `continuation`: Optional. The string that appears at the end of a line which indicates a line continuation. Can be indicated without value if `redefine` is specified and assigned.
-- `opener`: Optional. The string that is prefixed to a contiguous string that only ends with the closer string. Can be indicated without value if `redefine` is specified and assigned.
-- `closer`: Doubly Optional. If undefined, its value is the same as `opener`. It is also the only thing the escape prefix can escape in the contiguous string. Can be indicated without value if `redefine` is specified and assigned.
-- `encoding`: Optional. The string that indicates content encoding for a file. If undefined, content encoding cannot be specified. Can be indicated without value if `redefine` is specified and assigned.
+The line must contain the operator assignments:
+- `meta`: Required. The operator that indicates the line specifies a new file or directory is being defined. Must be assigned a value.
+- `comment`: Optional. The operator that indicates the line is a comment. Can be indicated without value if `redefine` is specified and assigned.
+- `redefine`: Optional. The operator that indicates the line specifies operator redefinitions. If indicated, must be assigned a value in this line but may be undefined in later redefinitions.
+- `escape`: Optional. The operator that allows the operators to begin the line in file data. Can be indicated without value if `redefine` is specified and assigned.
+- `assignment`: Optional. The operator that separates the attribute's name and value. Can be indicated without value if `redefine` is specified and assigned.
+- `continuation`: Optional. The operator that appears at the end of a line which indicates a line continuation. Can be indicated without value if `redefine` is specified and assigned.
+- `opener`: Optional. The operator that is indicates the beginning of a contiguous string that only ends with the closer operator. Can be indicated without value if `redefine` is specified and assigned.
+- `closer`: Doubly Optional. If undefined, its value is the same as `opener`. It is also the only thing the escape operator can escape in the contiguous string. Can be indicated without value if `redefine` is specified and assigned.
+- `encoding`: Optional. The operator that indicates content encoding for a file. If undefined, content encoding cannot be specified. Can be indicated without value if `redefine` is specified and assigned.
+- Claude this list is missing some newer assignments please add them.
 
 Parser Capability Requirements:
-- All prefixes that will be used anywhere in the file MUST be indicated in this line for parser capability checks
-- Any attempt to use or redefine a prefix that was not indicated in this line MUST result in a parse error
+- All operators that will be used anywhere in the file MUST be indicated in this line for parser capability checks
+- Any attempt to use or redefine an operator that was not at least indicated in this line MUST result in a parse error
 
-To define the prefixes:
-1. The prefix name
+To define the operators:
+1. The operator name
 1. No separating spaces
-1. The prefix string. It may not contain spaces.
-1. Optionally, to have more prefix assignments the following can be repeated:
+1. The operator string. It may not contain spaces.
+1. Optionally, to have more operator assignments the following can be repeated:
     1. A single space
-    1. More prefix assignments as described in the steps above.
+    1. More operator assignments as described in the steps above.
 
 For example, `meta= comment// escape123` defines the:
-- Meta string to be `=`
-- Comment string to be `//`
-- Escape string to be `123`
-- The other prefix strings to be undefined and unusable
+- Meta operator to be `=`
+- Comment operator to be `//`
+- Escape operator to be `123`
+- The other operators are undefined and unusable
 
 ### Content
 
@@ -217,11 +220,11 @@ For example, `meta= comment// escape123` defines the:
 
 The meta line defines a path for a file or directory and its attributes.
 
-The meta prefix is defined with the `meta` prefix string assignment and must be defined.
+The meta operator is defined with the `meta` assignment and must be defined.
 
 The definition at a minimum requires the following in order on the same line:
-1. The meta string
-1. An optional directory context string, which contains no space
+1. The meta operator
+1. An optional directory context, which contains no space
 1. A single space
 1. A POSIX path, optionally bracketed
     - If referencing an already defined directory context, the path must not begin with a forward slash
@@ -229,19 +232,21 @@ The definition at a minimum requires the following in order on the same line:
 
 If the POSIX path ends with trailing single forward slash, a directory is specified and not a file.
 
-If the `encoding` prefix is defined, zero or more encodings can be specified after the path:
+If the `encoding` operator is defined, zero or more encodings can be specified after the path:
 1. A single space
-1. The encoding prefix string
-1. The encoding name string, optionally bracketed
+1. The encoding operators
+1. The encoding name, optionally bracketed
 1. Optionally, steps 1-2 can be repeated for additional encodings which are applied left to right
+
+Claude the decoding instructions are required here
 
 Optionally (there are no required attributes), attributes can be associated with the definition with:
 1. At least one leading spaces
 1. Optionally, to allow multi-line attribute assignments the following the following can be included:
-    1. The line continuation string
+    1. The line continuation operator
     1. Zero or more spaces
 1. The attribute name string, optionally bracketed
-1. The attribute assignment string
+1. The attribute assignment operator
 1. The attribute value string, optionally bracketed
 1. Optionally, the above steps can be repeated for more attribute assignments
 
@@ -251,35 +256,103 @@ The file data need to be preceded file meta line.
 
 The lines following the file meta line are data lines.
 Data lines can be intermixed with lines that begin with comments and redefinitions that should not be included in the data.
-To have the comment, redefinition, escape string at the beginning of a line, the escape string can precede the strings to allow them to be included in data.
+To have the (Claude fill in the list of applicable operators) at the beginning of a data line, the escape operator must precede the operator to allow them to be included in data.
 
-The data ends at the last non-empty data, non-prefixed lines, before the next meta line or end of file.
-Trialing newlines are left to the implementations and attributes. It is suggested to use the attribute field name of `enls` (Ending Newlines).
-
-Warning! Be aware of newline translation because if you include mismatched newlines they may be changed upon file write.
+The data ends at the last non-empty data.
+Claude fill in some more context for the end of data lines
+Claude the trailing newlines instructions are required here
 
 #### Comments
 
-Comments can only be started at the beginning of the line and continue to the end of the line.
-The defined comment prefix must begin the line.
-They can appear intermixed in data lines.
-To define data lines that begin with the comment string, prefix the comment string with the escape string.
+Comments allow for information about the archive to be conveyed to the reader without affecting the data described in the archive.
 
-The comment prefix is defined with the `comment` prefix string assignment and is optional.
+The comment operator is defined with the `comment` assignment and is optional.
 If undefined, comments cannot be used.
 
-#### Redefintions
+Comments can only be started at the beginning of the line and continue to the end of the line.
+The comment operator must begin the line.
 
-Prefixes can be redefined throughout the document.
+Comments can appear intermixed in data lines.
+See escaping in the [Data Lines](#data-lines) section to include lines beginning with the comment operator string in the file data.
 
-The redefinition prefix is defined with the `redefine` prefix string assignment.
+Claude provide me the syntax and examples.
+
+#### Redefinitions
+
+Operators can be redefined throughout the document.
+
+The redefinition operator is defined with the `redefine` assignment.
+If included in the header `redefine` must assigned a value or it is a parse error.
 If undefined, redefinitions cannot be used.
 
-Redefintions are indicated by a line starting with the redefinition string.
+Redefinitions are indicated by a line starting with the redefine operator.
 There can be multiple redefinitions in the same line.
-Beyond redefining, 
 
-The redefinition prefix is Claude this
+Beyond redefining, operators can also be undefined, including `redefine` by not providing an assignment string.
+
+Redefinitions can appear intermixed in data lines.
+See escaping in the [Data Lines](#data-lines) section to include lines beginning with the redefine operator string in the file data.
+
+Claude provide me the syntax and examples.
+
+#### Trailing Newlines
+
+Trailing newlines can be specified with the content termination marker and is defined with the `terminator` keyword.
+This marker indicates the end of file content and specifies the number of trailing newlines to append to the file data.
+
+The terminator operator is followed by the base ten encoded number of trailing newlines.
+
+Binary files, indicated by encodings, default to zero trailing newlines.
+
+See escaping in the [Data Lines](#data-lines) section to include lines beginning with the terminator operator string in the file data.
+
+Claude help me define defaults and inheritance.
+
+Claude how are empty lines preceding the terminator operator interpreted?
+
+```hra
+= example.txt
+Some content here
+Some more content
+_1
+
+= /other.txt
+Multiple
+lines of
+content here
+_2
+
+= binary.dat $base64
+SGVsbG8gV29ybGQ=
+_0
+```
+
+##### Example with Various Cases
+
+```hra
+# Basic text file with one newline
+= simple.txt
+Hello World
+_1
+
+# Binary data with no newlines
+= data.bin $base64
+SGVsbG8gV29ybGQ=
+_0
+
+# Content containing the terminator operator string
+= script.sh
+echo "Running script..."
+\_1 # This is escaped, not a terminator
+More commands
+_1
+
+# Multiple newlines
+= spacing.txt
+Some text that needs
+extra spacing
+_3
+```
 
 ## Character Encoding
 
@@ -287,15 +360,16 @@ The Human Readable Archive format uses UTF-8 character encoding without Byte Ord
 
 ## Bracketing
 
-The HRA format supports bracketing of strings to allow the inclusion of spaces and other special characters. A bracketed string is one that begins with the `opener` string and ends with the `closer` string. If the `closer` string is undefined in the prefix assignments, the `opener` string is used as both the opening and closing bracket.
+The HRA format supports bracketing of strings to allow the inclusion of spaces and other special characters.
+A bracketed string is one that begins with the `opener` operator and ends with the `closer` operator.
+If the `closer` operator is undefined, the `opener` operator also defines the `closer` operator if it is defined
 
 ### Common Use Cases
 
 Bracketing is particularly useful for:
 - Paths containing spaces
 - Paths containing special characters that might otherwise require escaping
-- Paths containing the meta, comment, or redefine prefix strings
-- Any string that needs to preserve its exact formatting, including whitespace
+- Paths containing the operator that could be misinterpreted if unbracketed.
 
 ### Implementation and Behavior
 
@@ -303,17 +377,11 @@ Required behavior when a string is bracketed:
 - Must be opened
 - Spaces and other special characters are allowed within the string
 - The string is treated as a contiguous unit
-- The `closer` string can be escaped using the escape prefix to include it within the string
-- No other characters need to be escaped within the bracketed string
-- Once a string is opened, it must be closed before the end of the line
-
-Suggested practices for bracketing:
-- Choose bracketing strings that minimize conflicts with common path characters
-- Use short strings (1-2 characters) for readability
+- The `closer` string can be escaped using the escape prefix to include it within the string and no other characters need to be escaped within the bracketed string
 
 ### Examples
 
-Given prefix assignments:
+Given operator assignments:
 ```
 opener" closer" escape\    # Double quote as both opener and closer, backslash as escape
 ```
@@ -325,7 +393,7 @@ Valid bracketed paths:
 = "Users/John\"Smith/file.txt"    # Escaped quote within path
 ```
 
-Given prefix assignments with different opener and closer:
+Given operator assignments with different opener and closer:
 ```
 opener< closer> escape\      # Angle brackets as opener/closer, backslash as escape
 ```
@@ -351,11 +419,11 @@ and gives software clear rules for handling files of different versions.
 
 ## Directory Context
 
-Directory context is a feature that allows for more concise file and directory definitions when working with deeply nested paths. It uses context modifiers with the meta prefix to establish and reference directory contexts, making it easier to organize related files.
+Directory context is a feature that allows for more concise file and directory definitions when working with deeply nested paths. It uses context modifiers with the meta operator to establish and reference directory contexts, making it easier to organize related files.
 
 ### Context Modifiers
 
-Context modifiers are single characters that can be appended to the meta prefix to establish or reference directory contexts. While the examples show `^`, `-`, and `*`, any character can be used as a context modifier. The creator of the archive can choose whatever characters make sense for their use case.
+Context modifiers are single characters that can be appended to the meta operator to establish or reference directory contexts. While the examples show `^`, `-`, and `*`, any character can be used as a context modifier. The creator of the archive can choose whatever characters make sense for their use case.
 
 ### Usage Rules
 
@@ -441,7 +509,7 @@ Example:
 
 ## Attribute Inheritance Chain
 
-The HRA format uses a sequential inheritance chain to determine file and directory attributes when not explicitly specified.
+The HRA format uses a sequential inheritance chain to determine file and directory attributes, encodings, and decodings when not explicitly specified.
 First, any explicitly stated attributes take precedence.
 If attributes are missing, the system traverses up the directory tree from the immediate parent to the root directory, using the first encountered set of attributes.
 If no ancestor directories specify attributes, it examines child directories and uses the most commonly specified attributes among them (using the first child's attributes in case of ties).
@@ -452,9 +520,11 @@ Each attribute (permissions, user, group) is inherited independently, though cer
 
 Encoded data in the HRA format represents how the content is stored within the archive itself, not the original file's encoding. When data is extracted from the archive, the implementation decodes it back to its original form. This is similar to how base64 is used in email attachments - the actual file isn't base64 encoded, but its storage/transmission format is.
 
-An encoding is specified with the `encoding` prefix.
+An encoding is specified with the `encoding` operator.
 
 Do not confuse a file that actually contains encoded data with the archived encoded data. If the file contains encoded data, for example base64, then an encoding should not be specified.
+
+Encoding inheritance follows the same logic as the [Attribute Inheritance Chain](#attribute-inheritance-chain).
 
 Common encodings:
 - `base64` - Common binary encoding.
@@ -499,6 +569,79 @@ The escaped characters will be decoded to their actual values. The supported esc
   - `\r` - Carriage return (0x0D)
   - `\\` - Backslash (0x5C)
   - `\xhh` - Hexadecimal escape (where hh is any hex value)
+
+## Decoded Data
+
+The `decode` operator is optionally defined.
+For text files stored in UTF-8 within the archive, the decode specifications indicate what text encoding and line endings to use when extracting the file.
+Only one text encoding and one line ending specification can be active for a given file.
+If the decode operator is undefined in the header line, all text content is stored and extracted as UTF-8 with the original line endings preserved; text decoding specifications cannot be used since the operator is not defined.
+
+Text files are stored in UTF-8 within the archive. The decode specifications indicate:
+1. What text encoding to use when extracting the file
+2. What line endings to use when extracting the file
+
+Each decode specification consists of:
+1. A single space after the path and any encodings (or previous decode spec)
+2. The decode operator
+3. The specification name, optionally bracketed
+
+Text Encodings
+- `utf8` - UTF-8 encoding
+- `utf16le` - UTF-16 little endian
+- `utf16be` - UTF-16 big endian
+- `utf32le` - UTF-32 little endian
+- `utf32be` - UTF-32 big endian
+- `ascii` - ASCII encoding
+- `latin1` - ISO-8859-1 encoding
+
+Line Endings
+- `lf` - Unix style (LF)
+- `crlf` - Windows style (CRLF)
+- `cr` - Classic Mac style (CR)
+
+### Binary
+
+Binary files stored with encodings like base64 are decoded by reversing the encoding chain. They do not use decode specifications, but to prevent inheriting text decoding specifications from parent directories, an empty decode specification can be used:
+
+```hra
+# Set defaults for directory
+= / @utf16le @crlf
+# Inherits both utf16le and crlf
+= /text.txt
+# Empty decode prevents inheritance
+= /data.bin $base64 @
+SGVsbG8gV29ybGQ=
+```
+
+### Examples
+
+```hra
+# Set Windows line endings for all files
+= / @crlf
+
+# UTF-16LE file in Windows directory
+= /windows/config.txt @utf16le
+Hello World
+
+# Override parent directory line endings
+= /unix/ @lf
+= /unix/script.txt @utf16le  # Uses LF
+Text content
+
+# Multiple decode specs inherited from different levels
+= /docs/ @utf16le
+= /docs/windows/ @crlf
+= /docs/windows/readme.txt    # Uses utf16le and crlf
+
+# No decode specifications needed for UTF-8 content
+= /notes.txt
+Plain UTF-8 text
+
+# Binary data uses encoding for storage, no decode needed
+= /data.bin $base64
+SGVsbG8gV29ybGQ=
+```
 
 ## Attribute Standards
 
