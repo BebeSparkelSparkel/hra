@@ -523,7 +523,7 @@ Example
 
 #### POSIX (`standard=posix`)
 
-Core POSIX attributes that any POSIX-compliant filesystem must support:
+Core POSIX attributes that any POSIX-compliant filesystem must support.
 
 Attributes:
 - `posix_owner`: POSIX username
@@ -553,7 +553,10 @@ Example:
 ```
 
 #### HFS+ (`standard=hfs+`)
-Implements POSIX compliance plus HFS+ specific features:
+
+HFS+ specific features.
+
+Attributes:
 - `hfs_flags`: HFS-specific file flags (hex)
 - `hfs_xattr`: HFS-specific extended attributes
 - `hfs_rsrc`: Resource fork data (encoded)
@@ -654,6 +657,326 @@ standard=posix,hfs+,ntfs3.1
    - Standards implementing POSIX compliance inherit all `posix_*` attributes
    - POSIX attributes are interpreted according to the standard's POSIX compliance level
    - Standards may extend but not modify
+
+### ext4 (`standard=ext4`)
+
+Attributes
+- `ext4_flags` File and Directory Flags specified with a comma separated list of:
+  - `sync`: Synchronous updates
+  - `immutable`: Cannot be modified
+  - `append`: Write only appends
+  - `nodump`: Do not dump
+  - `noatime`: Do not update access time
+  - `dirsync`: Synchronous directory updates
+  - `top`: Top of directory hierarchy
+  - `project`: Project hierarchy
+  - `encrypt`: Directory encryption
+  - `casefold`: Case-insensitive directory
+- `ext4_project`: Project ID for quota management
+- `ext4_ea`: Extended attributes using ext4's format
+  - Reserved namespaces: 
+    - `security.*`
+    - `trusted.*`
+    - `system.*`
+    - `user.*`
+- `ext4_acl`: POSIX ACLs with ext4 extensions
+
+Example:
+```
+= /data/encrypted/ \
+    ext4_flags=encrypt,casefold \
+    ext4_project=42 \
+    ext4_ea=security.selinux=system_u:object_r:data_t:s0,security.ima=0123456789abcdef \
+
+= /data/encrypted/important.txt \
+    ext4_flags=sync,immutable \
+```
+
+### UFS2/FFS (`standard=ufs2`)
+
+Attributes
+-`ufs_flags` File Fl
+File Flags (`ufs_flags` as hex or comma-separated list):
+  - `arch`: Archive needed
+  - `nodump`: Do not dump
+  - `opaque`: Directory is opaque for union mounts
+  - `sappnd`: Secure append only
+  - `schg`: Secure change only
+  - `sunlnk`: Secure unlink only
+  - `uappnd`: User append only
+  - `uchg`: User change only
+  - `uhidden`: Hidden file
+  - `uunlnk`: User unlink only
+- `ufs_ea`: Extended attributes in UFS2 format
+
+Example:
+```
+= / standard=ufs2
+= /var/db/secure/ \
+    posix_mode=rwxr-x--- \
+    posix_owner=root \
+    posix_group=wheel \
+    ufs_flags=sappnd,schg \
+    ufs_ea=security.mac_biba=high \
+    modified=2024-11-12T15:30:00Z
+```
+
+### CBM DOS (`standard=cbmdos`)
+
+File Types (`cbm_type` as two-character code):
+- `DEL`: Deleted (scratched)
+- `SEQ`: Sequential data file
+- `PRG`: Program file
+- `USR`: User file
+- `REL`: Relative file (random access)
+
+File Attributes:
+- `cbm_name`: Original PETSCII filename (16 chars max)
+- `cbm_record`: Record length for REL files (1-254 bytes)
+- `cbm_locked`: File locked flag (true/false)
+
+Example:
+```hra
+= / standard=cbmdos
+= /games/GAME.PRG \
+    cbm_type=PRG \
+    cbm_name=GAME
+
+= /data/SCORES.REL \
+    cbm_type=REL \
+    cbm_name=SCORES \
+    cbm_record=30
+```
+
+#### Multi-Standard Example
+
+```hra
+= / standard=time,cbmdos,fat32
+= /games/c64/GAME.PRG \
+    cbm_type=PRG \
+    cbm_name=GAME \
+    fat_attrs=R \
+    fat_name=GAME.PRG \
+    modified=1984-12-24T12:00:00Z
+```
+
+#### Implementation Notes
+
+1. File Type Handling:
+   - `cbm_type` affects how data should be loaded/used
+   - Programs (PRG) start with load address
+   - REL files need record length for structure
+   - SEQ files are straight data streams
+
+2. Character Set Considerations:
+   - PETSCII stored in `cbm_name` needs encoding preservation
+   - Path names use normal filesystem encoding
+   - Implementation must handle PETSCII-UTF8 conversion
+
+3. Mapping Recommendations:
+   - Use standard read-only flags instead of `cbm_locked`
+   - Derive sizes from actual file content
+   - Ignore physical layout attributes
+
+4. Format Preservation:
+   - Store file type for proper handling
+   - Preserve PETSCII names for authenticity
+   - Maintain REL file structure
+
+### Atari DOS (`standard=ataridosii`)
+
+Attributes:
+- `atari_type` File Type as hex or short name:
+  - `00` or `non`: Normal (no special load address)
+  - `01` or `bas`: BASIC program
+  - `02` or `bin`: Binary load file
+  - `03` or `lst`: BASIC listed file
+  - `04` or `txt`: Text file (AtariWriter)
+  - `05` or `dat`: Data file
+  - `06` or `com`: Binary compiled (COM file)
+  - `07` or `sav`: BASIC saved file
+  - `20` - `7F`: Reserved by Atari
+  - `80` - `FF`: User definable
+- `atari_name`: Original filename (8 chars max, ATASCII)
+- `atari_locked`: File locked flag (`true`/`false`)
+- `atari_load`: Load address for binary files
+- `atari_init`: Init address for binary files (optional)
+- `atari_run`: Run address for binary files (optional)
+
+Example:
+```hra
+= /games/INVADERS \
+    atari_type=binary \
+    atari_name=INVADERS \
+    atari_locked=true \
+    atari_load=16384      # Using decimal for human readability
+    atari_init=16384
+    atari_run=16384
+
+= /docs/README \
+    atari_type=text \
+    atari_name=README \
+    atari_locked=false
+
+= /games/ADVENTURE \
+    atari_type=basic \
+    atari_name=ADVENTURE \
+    atari_locked=true
+```
+
+#### Multi-Standard Example
+
+```hra
+standard=time,ataridosii,fat32
+
+= /games/atari/INVADERS \
+    atari_type=binary \
+    atari_name=INVADERS \
+    atari_locked=true \
+    atari_load=16384 \
+    fat_name=INVADERS.BIN \
+    fat_attrs=R \
+    modified=1982-06-15T12:00:00Z
+```
+
+#### Implementation Notes
+
+1. Type Handling:
+   - File type determines required attributes
+   - Binary files need load address
+   - Init/run addresses optional based on program needs
+1. Character Set:
+   - ATASCII stored in `atari_name` needs encoding preservation
+   - Path names use normal filesystem encoding
+   - Implementation must handle ATASCII-UTF8 conversion
+1. Format Preservation:
+   - Store minimal required metadata
+   - Preserve original filenames
+   - Maintain program load information
+1. Protection Status:
+   - Locked status affects write permission
+   - May map to modern read-only equivalents
+   - Should be preserved across extractions
+
+
+### Future Standard Considerations
+
+The following filesystem standards warrant future definition due to their historical significance or modern relevance. Each would require careful analysis to identify preservation-worthy attributes while excluding filesystem-internal details.
+
+#### Modern Systems
+
+##### ZFS (`standard=zfs`)
+Advanced filesystem with rich metadata features.
+Implementation details reserved for future specification.
+
+##### Btrfs (`standard=btrfs`)
+Linux copy-on-write filesystem with:
+- Subvolume support
+- Advanced RAID features
+- Snapshot capabilities
+- Compression options
+- Checksumming
+Implementation details reserved for future specification.
+
+##### APFS (`standard=apfs`)
+Apple's modern filesystem with:
+- Container and volume concepts
+- Encryption integration
+- Snapshot support
+- Space sharing
+- Clone files
+Implementation details reserved for future specification.
+
+##### ReFS (`standard=refs`)
+Microsoft's Resilient File System with:
+- Integrity streams
+- Block cloning
+- Data deduplication
+- Storage tiering
+Implementation details reserved for future specification.
+
+##### XFS (`standard=xfs`)
+High-performance filesystem with:
+- Real-time device support
+- Guaranteed rate I/O
+- Project quota system
+- Rich attribute system
+Implementation details reserved for future specification.
+
+##### Object Storage (`standard=object`)
+Modern cloud storage paradigm with:
+- Rich metadata support
+- Custom attributes
+- Storage classes
+- Retention policies
+- Legal holds
+Implementation details reserved for future specification.
+
+##### GlusterFS (`standard=glusterfs`)
+Distributed filesystem with:
+- Volume types
+- Replica configurations
+- Geographic replication
+- Custom extended attributes
+Implementation details reserved for future specification.
+
+#### Historical Systems
+
+##### Apple DOS 3.3 (`standard=appledos33`)
+Significant for Apple II system preservation. Implementation details reserved for future specification.
+
+##### Apple ProDOS (`standard=prodos`)
+Advanced Apple II filesystem with features influencing modern Apple systems. Implementation details reserved for future specification.
+
+##### MSX-DOS (`standard=msxdos`)
+Important for MSX system preservation and CP/M compatibility. Implementation details reserved for future specification.
+
+##### ZX Spectrum +3DOS (`standard=plus3dos`)
+Essential for ZX Spectrum software preservation. Implementation details reserved for future specification.
+
+##### TRS-80 TRSDOS (`standard=trsdos`)
+Significant for TRS-80 system preservation. Implementation details reserved for future specification.
+
+##### CP/M (`standard=cpm`)
+Historically significant early operating system filesystem. Implementation details reserved for future specification.
+
+### Implementation Considerations
+
+When implementing support for any filesystem standard:
+
+1. Focus on Essential Features
+   - Preserve unique system characteristics
+   - Use logical rather than physical attributes
+   - Support extended metadata models
+   - Exclude filesystem-internal mechanisms
+1. Maintain Portability
+   - Support cross-platform compatibility
+   - Consider cloud and distributed scenarios
+   - Enable format migrations
+   - Handle character encoding properly
+1. Address Security
+   - Handle encryption requirements
+   - Preserve access controls
+   - Support compliance requirements
+   - Maintain audit capabilities
+1. Ensure Readability
+   - Keep attribute names clear
+   - Use human-readable values
+   - Document format requirements
+   - Provide clear examples
+1. Support Integration
+   - Map attributes between standards
+   - Handle standard-specific encodings
+   - Support metadata inheritance
+   - Enable attribute translation
+
+Each standard's specification should emphasize attributes that:
+- Affect file content interpretation
+- Preserve system-specific metadata
+- Enable authentic reproduction
+- Support historical accuracy
+- Maintain file organization structures
+- Address modern storage paradigms
 
 ### Archive Validation
 
