@@ -12,7 +12,7 @@ meta= comment# redefine~ escape\ assignment= continuation\ opener" closer" encod
 # The first two lines are more expressive than they seem. They define the type of whitspace character and newline string used in the rest of the file.
 # The third line holds the file format version.
 # The forth line defines the:
-# - required meta operator is assigned to `=`
+# - optional meta operator is assigned to `=`
 # - optional comment operator is assigned to `#`
 # - optional redefine operator is assigned to `~`
 # - optional escape operator is assigned to `\`
@@ -145,14 +145,11 @@ MIT License...
 
 ; The below directory definition shows how attributes can be place on following lines using line ending back slash for readability.
 ; The leading spaces are optional.
-; The meta defintion ends when the last line does not have an ending back slash.
+; The meta definition ends when the last line does not have an ending back slash.
 @ /multiple/line/ \
     perm=rwxrwxrwx \
     atime=2024/11/4-10:47:44
 
-; Multiple encodings (applied in order left to right)
-@ /compressed.dat $zstd $base64
-H4sIAAAAAAAAA0vLz1FIy8xLAQBuYJ0LDQAAAA==
 ```
 
 ## Format
@@ -185,7 +182,7 @@ View the (Format Version)[#format-version) section for the version meaning.
 #### Fourth (Operator Assignments) Line
 
 The line must contain the operator assignments:
-- `meta`: Required. The operator that indicates the line specifies a new file or directory is being defined. Must be assigned a value.
+- `meta`: Optional. The operator that indicates the line specifies a new file or directory is being defined. Can be indicated without value if `redefine` is specified and assigned.
 - `comment`: Optional. The operator that indicates the line is a comment. Can be indicated without value if `redefine` is specified and assigned.
 - `redefine`: Optional. The operator that indicates the line specifies operator redefinitions. If indicated, must be assigned a value in this line but may be undefined in later redefinitions.
 - `escape`: Optional. The operator that allows the operators to begin the line in file data. Can be indicated without value if `redefine` is specified and assigned.
@@ -194,7 +191,9 @@ The line must contain the operator assignments:
 - `opener`: Optional. The operator that is indicates the beginning of a contiguous string that only ends with the closer operator. Can be indicated without value if `redefine` is specified and assigned.
 - `closer`: Doubly Optional. If undefined, its value is the same as `opener`. It is also the only thing the escape operator can escape in the contiguous string. Can be indicated without value if `redefine` is specified and assigned.
 - `encoding`: Optional. The operator that indicates content encoding for a file. If undefined, content encoding cannot be specified. Can be indicated without value if `redefine` is specified and assigned.
-- Claude this list is missing some newer assignments please add them.
+- `decode`: Optional. The operator that indicates how text content should be decoded during extraction, specifying both text encoding and line ending format. If undefined, content is stored and extracted as UTF-8 with original line endings preserved. Can be indicated without value if `redefine` is specified and assigned.
+- terminator: Optional. The operator that indicates the number of trailing newlines to append to file content. The value must be a base-10 number. If undefined, text files default to one trailing newline and binary files default to zero. Can be indicated without value if `redefine` is specified and assigned.
+
 
 Parser Capability Requirements:
 - All operators that will be used anywhere in the file MUST be indicated in this line for parser capability checks
@@ -220,7 +219,7 @@ For example, `meta= comment// escape123` defines the:
 
 The meta line defines a path for a file or directory and its attributes.
 
-The meta operator is defined with the `meta` assignment and must be defined.
+The meta operator is defined with the `meta` assignment.
 
 The definition at a minimum requires the following in order on the same line:
 1. The meta operator
@@ -238,7 +237,11 @@ If the `encoding` operator is defined, zero or more encodings can be specified a
 1. The encoding name, optionally bracketed
 1. Optionally, steps 1-2 can be repeated for additional encodings which are applied left to right
 
-Claude the decoding instructions are required here
+If the `decode` operator is defined, zero or more decode specifications can be specified after any encodings:
+1. A single space
+2. The decode operator
+3. The decode specification name, optionally bracketed
+4. Optionally, steps 1-2 can be repeated for additional decode specifications
 
 Optionally (there are no required attributes), attributes can be associated with the definition with:
 1. At least one leading spaces
@@ -256,11 +259,29 @@ The file data need to be preceded file meta line.
 
 The lines following the file meta line are data lines.
 Data lines can be intermixed with lines that begin with comments and redefinitions that should not be included in the data.
-To have the (Claude fill in the list of applicable operators) at the beginning of a data line, the escape operator must precede the operator to allow them to be included in data.
+To have the meta, comment, redefine, continuation, or terminator operators at the beginning of a data line, the escape operator must precede the operator to allow them to be included in data.
 
-The data ends at the last non-empty data.
-Claude fill in some more context for the end of data lines
-Claude the trailing newlines instructions are required here
+File data ends at the last non-empty data line.
+
+The data lines following a file meta line are parsed according to these rules:
+1. Each line must contain:
+   - Zero or more characters that are not newline characters
+   - A newline character sequence as defined in the header
+2. If the data line begins with:
+   - The meta operator (if defined)
+   - The comment operator (if defined)
+   - The redefine operator (if defined)
+   - The terminator operator (if defined)
+   Then the escape operator (if defined) must precede it to include it as data
+3. Empty lines:
+   - Are preserved as part of the data unless:
+     - They appear after the last non-empty data line
+     - And before a terminator operator (if defined)
+4. Data collection ends at either:
+   - The next meta line (if defined)
+   - The end of the file
+   - A terminator operator line (if defined)
+
 
 #### Comments
 
@@ -275,7 +296,28 @@ The comment operator must begin the line.
 Comments can appear intermixed in data lines.
 See escaping in the [Data Lines](#data-lines) section to include lines beginning with the comment operator string in the file data.
 
-Claude provide me the syntax and examples.
+The definition requires the following in order on the same line:
+1. The comment operator at the beginning of the line
+1. Zero or more characters
+1. A newline character
+
+Example:
+```hra
+# This is a comment about the file
+= example.txt
+Regular file content
+\# This is file data because it's escaped
+# This is a comment within the file data
+More content
+
+# Changing comment operator
+~ comment//
+// Now using different comment style
+= other.txt
+// These are valid comments
+Content here
+\// This is escaped data, not a comment
+```
 
 #### Redefinitions
 
@@ -293,65 +335,89 @@ Beyond redefining, operators can also be undefined, including `redefine` by not 
 Redefinitions can appear intermixed in data lines.
 See escaping in the [Data Lines](#data-lines) section to include lines beginning with the redefine operator string in the file data.
 
-Claude provide me the syntax and examples.
+The redefinition line requires the following in order:
+1. The redefinition operator at the start of the line
+2. Zero or more redefinitions, each consisting of:
+   1. A single space
+   2. The operator name to be redefined, optionally bracketed
+   3. The operator assignment operator if providing a new value
+   4. The new operator string if providing a new value, optionally bracketed
+
+Examples
+```hra
+# Basic redefinition
+~ meta@ comment;
+
+# Multiple redefinitions on one line
+~ meta@ comment# escape\ opener[ closer]
+
+# Undefining operators
+~ comment escape    # Removes comment and escape operators
+
+# Using continuation for readability
+~ meta@ \
+  comment# \
+  escape\\ \
+  opener[ \
+  closer]
+
+# Redefining to multi-character operators
+~ meta=== comment### escape\\\
+```
 
 #### Trailing Newlines
 
 Trailing newlines can be specified with the content termination marker and is defined with the `terminator` keyword.
-This marker indicates the end of file content and specifies the number of trailing newlines to append to the file data.
-
-The terminator operator is followed by the base ten encoded number of trailing newlines.
-
-Binary files, indicated by encodings, default to zero trailing newlines.
+The terminator operator is followed by the base ten encoded number to explicitly specify the number of trailing newlines to append after the last non-empty data line.
+Any empty lines between the last non-empty data line and the terminator operator are NOT considered part of the file data.
+This allows for cleaner file organization while preserving exact trailing whitespace when needed.
 
 See escaping in the [Data Lines](#data-lines) section to include lines beginning with the terminator operator string in the file data.
 
-Claude help me define defaults and inheritance.
+Default Values:
+   - Text files (determined by content and/or decoders): 1 trailing newline
+   - Binary files (determined by encoders): 0 trailing newlines
+   - The default can be overridden by explicit terminator operator
 
-Claude how are empty lines preceding the terminator operator interpreted?
+Trailing newlines do not follow the attribute inheritance chain since inheritance could cause unexpected content modifications. Additionally, different files in the same directory often need different trailing newlines based on their content and purpose, making inheritance impractical and potentially harmful to file integrity.
 
-```hra
-= example.txt
-Some content here
-Some more content
+Directories, being containers rather than content, cannot have trailing newlines. The terminator operator is invalid when used in directory definitions and any attempt to specify trailing newlines for a directory will result in a parse error. This restriction maintains the clear distinction between file content handling and directory structure.
+
+
+Examples
+```hara
+# Empty lines before terminator are NOT included
+= example1.txt
+Content here
+
+
+_1  # Results in: "Content here\n"
+
+# Lines with whitespace, not newlines, before terminator ARE included
+= example2.txt
+Content here
+# Below line has spaces
+   
 _1
+# Results in: "Content here\n   \n"
 
-= /other.txt
-Multiple
-lines of
-content here
+# Multiple cases demonstrated
+= example3.txt
+Last content line
+
+  
+# Comment line
+    
 _2
+# Results in: "Last content line\n\n"
 
-= binary.dat $base64
-SGVsbG8gV29ybGQ=
+= example4.txt
+Data here
+
+    
+# The empty lines above are ignored
 _0
-```
-
-##### Example with Various Cases
-
-```hra
-# Basic text file with one newline
-= simple.txt
-Hello World
-_1
-
-# Binary data with no newlines
-= data.bin $base64
-SGVsbG8gV29ybGQ=
-_0
-
-# Content containing the terminator operator string
-= script.sh
-echo "Running script..."
-\_1 # This is escaped, not a terminator
-More commands
-_1
-
-# Multiple newlines
-= spacing.txt
-Some text that needs
-extra spacing
-_3
+# Results in: "Data here"
 ```
 
 ## Character Encoding
@@ -556,7 +622,6 @@ Escaped encoding is a customized UTF-8 encoding for this archive that allows for
 - all characters to be specified with an hex value
 
 The backslash `\` is known as the escape character, and when combined with another character it forms an escape sequence.
-Claude we need to figure out how this interacts with actual newline characters.
 
 The escaped characters will be decoded to their actual values. The supported escapes are
   - `\0` - Null character (0x00)
@@ -569,6 +634,10 @@ The escaped characters will be decoded to their actual values. The supported esc
   - `\r` - Carriage return (0x0D)
   - `\\` - Backslash (0x5C)
   - `\xhh` - Hexadecimal escape (where hh is any hex value)
+
+Actual newlines that end data lines are included in the data.
+This means newlines can be specified with `\n` and an actual newline,
+so it is unnecessary to end lines with a `\n` to include newlines in the data.
 
 ## Decoded Data
 
