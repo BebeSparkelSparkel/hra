@@ -3,12 +3,11 @@
 A file that contains directory information, file contents, and meta-data.
 
 Example:
-
 ```hra
 Human Readable
 Archive
 0.1
-meta= comment# redefine~ escape\ assignment= continuation\ opener" closer" encoding$ decode@ terminator_
+meta= comment# redefine~ escape\ assignment= continuation\ opener" closer" encoding$ format@ trailing_ standard=hfs+
 # The first two lines are more expressive than they seem. They define the type of whitspace character and newline string used in the rest of the file.
 # The third line holds the file format version.
 # The forth line defines the:
@@ -19,10 +18,11 @@ meta= comment# redefine~ escape\ assignment= continuation\ opener" closer" encod
 # - optional attribute assignment operator assigned to `=`
 # - optional line continuation operator assigned to `\`
 # - optional opener operator for contiguous strings is assigned to `"`
-# - doubly optional closer of contiguous strings is assignd to '"'
+# - doubly optional closer of contiguous strings is assigned to '"'
 # - optional file encoding operator is assigned to "$"
-# - optional file decoding operator is assigned to "@"
-# - optional file terminator operator is assigned to "_"
+# - optional file format operator is assigned to "@"
+# - optional file trailing operator is assigned to "_"
+# - optional attribute standard of `hfs+` enabled
 
 # Explicitly define permissions for a directory
 = / perm=rwxr-xr-x user=root group=wheel
@@ -70,7 +70,7 @@ nopqrstuvwxyz
 # An executable file
 = "/texts/shakespere/Player and the Pipe" perm=rwxrwxr-x user=sue group=sue
 # This is a comment. The below escape character escapes the comment operator so it is included in the file data.
-/#!/bin/bash
+\#!/bin/bash
 RED='\033[0;31m'; GREEN='\033[0;32m'; BLUE='\033[0;34m'; NC='\033[0m'
 play_note() { echo -e "${BLUE} Playing note: $1 ${NC}"; sleep 0.5; }
 attempt_manipulation() {
@@ -139,7 +139,7 @@ MIT License...
 ~ meta@ comment; redefine
 ; This is a comment. The above redefines the meta and comment operators characters to be `@` and `;`
 ; It also undefines the `redefine` operator which can longer be used.
-; The comment operator character can also be undefined in the same way.
+; The comment operator can also be undefined in the same way.
 
 @ /files/and/directories/are/now/defined/with/the/@/prefix.txt
 
@@ -149,7 +149,6 @@ MIT License...
 @ /multiple/line/ \
     perm=rwxrwxrwx \
     atime=2024/11/4-10:47:44
-
 ```
 
 ## Format
@@ -160,7 +159,7 @@ The header is four lines and defines how to how to interpret the rest of the fil
 
 #### First and Second Line
 
-The first line must start with the string `Human`. Then:
+The file must start with the string `Human`. Then:
 1. One character to be used as the space character for the rest of the file
     - This documentation refers to this character as **space**
     - Typically, it is the *space* `0x20` or *tab* `0x09` character. Tab may be a good choice if your paths contain many `0x20` *spaces*.
@@ -170,7 +169,7 @@ The first line must start with the string `Human`. Then:
 
 #### Third (Version) Line
 
-The third line holds the hra file format version (e.g. `0.1`) which contains
+The third line holds the hra file format version (e.g. `0.1`).
 
 The line contains:
 1. the major version digits (version numbers us base 10 digits)
@@ -179,9 +178,9 @@ The line contains:
 
 View the (Format Version)[#format-version) section for the version meaning.
 
-#### Fourth (Operator Assignments) Line
+#### Fourth (Archive Configuration) Line
 
-The line must contain the operator assignments:
+The line contains the assignments:
 - `meta`: Optional. The operator that indicates the line specifies a new file or directory is being defined. Can be indicated without value if `redefine` is specified and assigned.
 - `comment`: Optional. The operator that indicates the line is a comment. Can be indicated without value if `redefine` is specified and assigned.
 - `redefine`: Optional. The operator that indicates the line specifies operator redefinitions. If indicated, must be assigned a value in this line but may be undefined in later redefinitions.
@@ -191,9 +190,9 @@ The line must contain the operator assignments:
 - `opener`: Optional. The operator that is indicates the beginning of a contiguous string that only ends with the closer operator. Can be indicated without value if `redefine` is specified and assigned.
 - `closer`: Doubly Optional. If undefined, its value is the same as `opener`. It is also the only thing the escape operator can escape in the contiguous string. Can be indicated without value if `redefine` is specified and assigned.
 - `encoding`: Optional. The operator that indicates content encoding for a file. If undefined, content encoding cannot be specified. Can be indicated without value if `redefine` is specified and assigned.
-- `decode`: Optional. The operator that indicates how text content should be decoded during extraction, specifying both text encoding and line ending format. If undefined, content is stored and extracted as UTF-8 with original line endings preserved. Can be indicated without value if `redefine` is specified and assigned.
-- terminator: Optional. The operator that indicates the number of trailing newlines to append to file content. The value must be a base-10 number. If undefined, text files default to one trailing newline and binary files default to zero. Can be indicated without value if `redefine` is specified and assigned.
-
+- `format`: Optional. The operator that indicates the final file format after extraction by specifying both text encoding and optionally line ending format. If undefined, content is stored and extracted as UTF-8 with original line endings preserved. Can be indicated without value if `redefine` is specified and assigned.
+- trailing: Optional. The operator that indicates the number of trailing newlines to append to file content. The value must be a base-10 number. If undefined, text files default to one trailing newline and binary files default to zero. Can be indicated without value if `redefine` is specified and assigned.
+- `standard=`: Optional. Comma-separated list of attribute standards to apply. Controls what attributes are valid throughout the archive. Can be indicated without value if `redefine` is specified and assigned.
 
 Parser Capability Requirements:
 - All operators that will be used anywhere in the file MUST be indicated in this line for parser capability checks
@@ -228,7 +227,9 @@ The definition at a minimum requires the following in order on the same line:
 1. A POSIX path, optionally bracketed
     - If referencing an already defined directory context, the path must not begin with a forward slash
     - If not bracketed, spaces may not be used
-
+    - Path must not contain `.` or `..` path components
+    - Path must not contain consecutive forward slashes (`//`)
+ 
 If the POSIX path ends with trailing single forward slash, a directory is specified and not a file.
 
 If the `encoding` operator is defined, zero or more encodings can be specified after the path:
@@ -237,11 +238,10 @@ If the `encoding` operator is defined, zero or more encodings can be specified a
 1. The encoding name, optionally bracketed
 1. Optionally, steps 1-2 can be repeated for additional encodings which are applied left to right
 
-If the `decode` operator is defined, zero or more decode specifications can be specified after any encodings:
+If the `format` operator is defined, zero or more format specifications can be specified after any encodings:
 1. A single space
-2. The decode operator
-3. The decode specification name, optionally bracketed
-4. Optionally, steps 1-2 can be repeated for additional decode specifications
+2. The format operator
+3. The format specification name, optionally bracketed
 
 Optionally (there are no required attributes), attributes can be associated with the definition with:
 1. At least one leading spaces
@@ -257,9 +257,16 @@ Optionally (there are no required attributes), attributes can be associated with
 
 The file data need to be preceded file meta line.
 
-The lines following the file meta line are data lines.
+The lines following the file meta line can be data lines.
 Data lines can be intermixed with lines that begin with comments and redefinitions that should not be included in the data.
-To have the meta, comment, redefine, continuation, or terminator operators at the beginning of a data line, the escape operator must precede the operator to allow them to be included in data.
+
+To have the
+- meta
+- comment
+- redefine
+- continuation
+- trailing
+operators at the beginning of a data line, the escape operator must precede the operator to allow them to be included in data.
 
 File data ends at the last non-empty data line.
 
@@ -267,21 +274,17 @@ The data lines following a file meta line are parsed according to these rules:
 1. Each line must contain:
    - Zero or more characters that are not newline characters
    - A newline character sequence as defined in the header
-2. If the data line begins with:
+1. If the data line begins with:
    - The meta operator (if defined)
    - The comment operator (if defined)
    - The redefine operator (if defined)
-   - The terminator operator (if defined)
+   - The trailing operator (if defined)
    Then the escape operator (if defined) must precede it to include it as data
-3. Empty lines:
-   - Are preserved as part of the data unless:
-     - They appear after the last non-empty data line
-     - And before a terminator operator (if defined)
-4. Data collection ends at either:
+1. Empty lines are preserved as part of the data unless they appear after the last non-empty data line. If there are no non-empty data lines then no empty lines are preserved.
+1. Data collection ends at either:
    - The next meta line (if defined)
+   - A trailing operator line (if defined)
    - The end of the file
-   - A terminator operator line (if defined)
-
 
 #### Comments
 
@@ -292,6 +295,8 @@ If undefined, comments cannot be used.
 
 Comments can only be started at the beginning of the line and continue to the end of the line.
 The comment operator must begin the line.
+
+When using line continuation, comment lines are allowed between the continued lines and are ignored when assembling the logical line. For example:
 
 Comments can appear intermixed in data lines.
 See escaping in the [Data Lines](#data-lines) section to include lines beginning with the comment operator string in the file data.
@@ -317,6 +322,12 @@ More content
 // These are valid comments
 Content here
 \// This is escaped data, not a comment
+
+= /example.txt \
+# This is a valid comment between continued lines
+    perm=rwxr-xr-x \
+# Another comment before the final part
+    user=root
 ```
 
 #### Redefinitions
@@ -337,11 +348,11 @@ See escaping in the [Data Lines](#data-lines) section to include lines beginning
 
 The redefinition line requires the following in order:
 1. The redefinition operator at the start of the line
-2. Zero or more redefinitions, each consisting of:
-   1. A single space
-   2. The operator name to be redefined, optionally bracketed
-   3. The operator assignment operator if providing a new value
-   4. The new operator string if providing a new value, optionally bracketed
+1. Zero or more redefinitions, each consisting of:
+   a. A single space
+   a. The operator name to be redefined, optionally bracketed
+   a. The operator assignment operator if providing a new value
+   a. The new operator string if providing a new value, optionally bracketed
 
 Examples
 ```hra
@@ -367,33 +378,33 @@ Examples
 
 #### Trailing Newlines
 
-Trailing newlines can be specified with the content termination marker and is defined with the `terminator` keyword.
-The terminator operator is followed by the base ten encoded number to explicitly specify the number of trailing newlines to append after the last non-empty data line.
-Any empty lines between the last non-empty data line and the terminator operator are NOT considered part of the file data.
+Trailing newlines can be specified with the `trailing` operator.
+The trailing operator is followed by the base ten encoded number to explicitly specify the number of trailing newlines to append after the last non-empty data line.
+Any empty lines between the last non-empty data line and the trailing operator are NOT considered part of the file data.
 This allows for cleaner file organization while preserving exact trailing whitespace when needed.
 
-See escaping in the [Data Lines](#data-lines) section to include lines beginning with the terminator operator string in the file data.
+See escaping in the [Data Lines](#data-lines) section to include lines beginning with the trailing operator string in the file data.
 
 Default Values:
    - Text files (determined by content and/or decoders): 1 trailing newline
    - Binary files (determined by encoders): 0 trailing newlines
-   - The default can be overridden by explicit terminator operator
+   - The default can be overridden by explicit trailing operator
 
 Trailing newlines do not follow the attribute inheritance chain since inheritance could cause unexpected content modifications. Additionally, different files in the same directory often need different trailing newlines based on their content and purpose, making inheritance impractical and potentially harmful to file integrity.
 
-Directories, being containers rather than content, cannot have trailing newlines. The terminator operator is invalid when used in directory definitions and any attempt to specify trailing newlines for a directory will result in a parse error. This restriction maintains the clear distinction between file content handling and directory structure.
+Directories, being containers rather than content, cannot have trailing newlines. The trailing operator is invalid when used in directory definitions and any attempt to specify trailing newlines for a directory will result in a parse error. This restriction maintains the clear distinction between file content handling and directory structure.
 
 
 Examples
 ```hara
-# Empty lines before terminator are NOT included
+# Empty lines before trailing are NOT included
 = example1.txt
 Content here
 
 
 _1  # Results in: "Content here\n"
 
-# Lines with whitespace, not newlines, before terminator ARE included
+# Lines with whitespace, not newlines, before trailing ARE included
 = example2.txt
 Content here
 # Below line has spaces
@@ -422,53 +433,56 @@ _0
 
 ## Character Encoding
 
-The Human Readable Archive format uses UTF-8 character encoding without Byte Order Mark (BOM). The absence of BOM is required to ensure the file begins directly with "Human" as specified in the header requirements. All implementations must support UTF-8 encoding to ensure universal compatibility and proper handling of international characters.
+The Human Readable Archive format uses UTF-8 character encoding without Byte Order Mark (BOM).
+The absence of BOM is required to ensure the file begins directly with "Human" as specified in the header requirements.
+All implementations must support UTF-8 encoding to ensure universal compatibility and proper handling of international characters.
 
-## Bracketing
+The parser MUST validate that all text in the archive is valid UTF-8 according to RFC 3629.
+This strict validation ensures archive consistency and prevents any ambiguity about the stored data.
 
-The HRA format supports bracketing of strings to allow the inclusion of spaces and other special characters.
+## String Bracketing
+
+The HRA format supports string bracketing to allow the inclusion of spaces and other special characters.
 A bracketed string is one that begins with the `opener` operator and ends with the `closer` operator.
 If the `closer` operator is undefined, the `opener` operator also defines the `closer` operator if it is defined
-
-### Common Use Cases
 
 Bracketing is particularly useful for:
 - Paths containing spaces
 - Paths containing special characters that might otherwise require escaping
 - Paths containing the operator that could be misinterpreted if unbracketed.
 
-### Implementation and Behavior
-
-Required behavior when a string is bracketed:
-- Must be opened
-- Spaces and other special characters are allowed within the string
-- The string is treated as a contiguous unit
-- The `closer` string can be escaped using the escape prefix to include it within the string and no other characters need to be escaped within the bracketed string
+The syntax for a bracketed string:
+1. The opener operator
+1. Zero or more of the following:
+  - the escape operator followed by the closer operator
+  - a character
+1. The closer operator
 
 ### Examples
 
-Given operator assignments:
-```
-opener" closer" escape\    # Double quote as both opener and closer, backslash as escape
-```
+```hra
+opener" escape\ comment# redefine~
+# Above operator assignments: Double quote as both opener and closer, backslash as escape, hash as comment, tilde as redefine
+
+# Valid bracketed paths:
+# Spaces allowed in path
+= "Program Files/example.txt"
+# Another space-containing path
+= "My Documents/report.doc"
+# Escaped quote within path
+= "Users/John\"Smith/file.txt"
+
+# redefine operator assignments with different opener and closer:
+# Angle brackets as opener/closer
+~ opener< closer>
 
 Valid bracketed paths:
-```
-= "Program Files/example.txt"     # Spaces allowed in path
-= "My Documents/report.doc"       # Another space-containing path
-= "Users/John\"Smith/file.txt"    # Escaped quote within path
-```
-
-Given operator assignments with different opener and closer:
-```
-opener< closer> escape\      # Angle brackets as opener/closer, backslash as escape
-```
-
-Valid bracketed paths:
-```
-= <C:/Users/John Doe/file.txt>    # Spaces allowed in path
-= <data files/raw data.csv>       # Multiple spaces handled
-= <data\>files/example.txt>       # Escaped > within path
+# Spaces allowed in path
+= <C:/Users/John Doe/file.txt>
+# Multiple spaces handled
+= <data files/raw data.csv>
+# Escaped > within path
+= <data\>files/example.txt>
 ```
 
 ## Format Version
@@ -510,7 +524,7 @@ Context modifiers are single characters that can be appended to the meta operato
 
 1. Path Resolution:
    - When using a context, the path provided is appended to the context path
-   - The resulting path must be normalized (no `..` or `.` references)
+   - The resulting path must be normalized (no `//`, `..`, or `.` references)
    - Paths used with contexts must not begin with a forward slash
 
 ### Examples
@@ -575,16 +589,16 @@ Example:
 
 ## Attribute Inheritance Chain
 
-The HRA format uses a sequential inheritance chain to determine file and directory attributes, encodings, and decodings when not explicitly specified.
+The HRA format uses a sequential inheritance chain to determine file and directory attributes, encodings, and formats when not explicitly specified.
 First, any explicitly stated attributes take precedence.
 If attributes are missing, the system traverses up the directory tree from the immediate parent to the root directory, using the first encountered set of attributes.
-If no ancestor directories specify attributes, it examines child directories and uses the most commonly specified attributes among them (using the first child's attributes in case of ties).
-Finally, if no attributes can be inherited through these means, the system falls back to default values: `rw-r--r--` and `root:root` for files, and `rwxr-xr-x` and `root:root` for directories.
-Each attribute (permissions, user, group) is inherited independently, though certain attributes like symlink targets must always be explicitly specified.
+Finally, if no attributes can be inherited through these means, the system falls back to default values.
 
 ## Encoded Data
 
-Encoded data in the HRA format represents how the content is stored within the archive itself, not the original file's encoding. When data is extracted from the archive, the implementation decodes it back to its original form. This is similar to how base64 is used in email attachments - the actual file isn't base64 encoded, but its storage/transmission format is.
+Encoded data in the HRA format represents how the content is stored within the archive itself, not the original file's encoding.
+When data is extracted from the archive, the implementation translates it back to its original form.
+This is similar to how base64 is used in email attachments - the actual file isn't base64 encoded, but its storage/transmission format is.
 
 An encoding is specified with the `encoding` operator.
 
@@ -596,7 +610,7 @@ Common encodings:
 - `base64` - Common binary encoding.
 - `base32` - Common binary encoding.
 - `hex`    - Common binary encoding.
-- `escape` - Custom text encoding called (Escaped Encoding)[#escaped-encoding].
+- `escape` - Custom text encoding called [Escaped Encoding](#escaped-encoding).
 - `ascii`  - Common text encoding.
 - `utf8`   - Common text encoding. The default encoding. Only required implementation.
 
@@ -608,13 +622,14 @@ Only one encoding can be applied.
 
 Examples
 ```hra
-# a base64 encoded file that needs to be decoded before it can be used.
+# a base64 encoded file that needs to be translated before it can be used.
 = binary.dat $base64
 SGVsbG8gV29ybGQ=
 
-= compressed.bin.zstd $base64
+= compressed.bin $base64
 KLUv/QRYWQAAaGVsbG8Ed29ybGQCAXf6qXgA
 ```
+
 ### Escaped Encoding
 
 Escaped encoding is a customized UTF-8 encoding for this archive that allows for:
@@ -623,7 +638,7 @@ Escaped encoding is a customized UTF-8 encoding for this archive that allows for
 
 The backslash `\` is known as the escape character, and when combined with another character it forms an escape sequence.
 
-The escaped characters will be decoded to their actual values. The supported escapes are
+The escaped characters will be translated to their actual values. The supported escapes are
   - `\0` - Null character (0x00)
   - `\a` - Bell/Alert (0x07)
   - `\b` - Backspace (0x08)
@@ -639,20 +654,19 @@ Actual newlines that end data lines are included in the data.
 This means newlines can be specified with `\n` and an actual newline,
 so it is unnecessary to end lines with a `\n` to include newlines in the data.
 
-## Decoded Data
+## Formatted Data
 
-The `decode` operator is optionally defined.
-For text files stored in UTF-8 within the archive, the decode specifications indicate what text encoding and line endings to use when extracting the file.
+The `format` operator is optionally defined.
+
+## Text
+
+For text files stored in UTF-8 within the archive, the format operators specifies what text encoding and line endings to use when exporting the file data.
 Only one text encoding and one line ending specification can be active for a given file.
-If the decode operator is undefined in the header line, all text content is stored and extracted as UTF-8 with the original line endings preserved; text decoding specifications cannot be used since the operator is not defined.
+If the format operator is undefined in the header line, all text content is stored and extracted as UTF-8 with the original line endings preserved; text formatting specifications cannot be used since the operator is not defined.
 
-Text files are stored in UTF-8 within the archive. The decode specifications indicate:
-1. What text encoding to use when extracting the file
-2. What line endings to use when extracting the file
-
-Each decode specification consists of:
-1. A single space after the path and any encodings (or previous decode spec)
-2. The decode operator
+Each format specification consists of:
+1. A single space after the path and any encodings (or previous format specifications)
+2. The format operator
 3. The specification name, optionally bracketed
 
 Text Encodings
@@ -669,22 +683,7 @@ Line Endings
 - `crlf` - Windows style (CRLF)
 - `cr` - Classic Mac style (CR)
 
-### Binary
-
-Binary files stored with encodings like base64 are decoded by reversing the encoding chain. They do not use decode specifications, but to prevent inheriting text decoding specifications from parent directories, an empty decode specification can be used:
-
-```hra
-# Set defaults for directory
-= / @utf16le @crlf
-# Inherits both utf16le and crlf
-= /text.txt
-# Empty decode prevents inheritance
-= /data.bin $base64 @
-SGVsbG8gV29ybGQ=
-```
-
-### Examples
-
+Examples
 ```hra
 # Set Windows line endings for all files
 = / @crlf
@@ -698,23 +697,40 @@ Hello World
 = /unix/script.txt @utf16le  # Uses LF
 Text content
 
-# Multiple decode specs inherited from different levels
+# Multiple formatting specs inherited from different levels
 = /docs/ @utf16le
 = /docs/windows/ @crlf
 = /docs/windows/readme.txt    # Uses utf16le and crlf
 
-# No decode specifications needed for UTF-8 content
+# No formatting specifications needed for UTF-8 content
 = /notes.txt
 Plain UTF-8 text
+```
 
-# Binary data uses encoding for storage, no decode needed
-= /data.bin $base64
+### Binary
+
+Binary files stored with encodings like base64.
+
+They do not use a format specifications, but to prevent inheriting text format specifications, an empty format specification can be used. For example:
+```hra
+# Set defaults for directory
+= / @utf16le @crlf
+# Inherits both utf16le and crlf
+= /text.txt
+# Empty decode prevents inheritance
+= /data.bin $base64 @
 SGVsbG8gV29ybGQ=
 ```
 
 ## Attribute Standards
 
-The fourth header line can optionally include `standard=` to specify the attribute standard being used. Common standards include:
+The fourth header line can optionally include `standard=` to specify the attribute standard being used.
+Attributes not included in the standards are not in error and are allowed.
+
+No implementation is required to support any standard, but implementations may:
+- Ignore unsupported attribute standards  
+- Provide best-effort attribute mapping
+- Warn about unsupported or missing standards
 
 ### File System
 
@@ -777,7 +793,7 @@ Attributes:
 
 Example:
 ```hra
-= / standard=hfs+
+standard=hfs+
 = /Applications/App.app/Contents/Info.plist \
     hfs_flags=0x00000040 \
     hfs_type=TEXT \
@@ -822,8 +838,8 @@ Attributes
 - `fat_lfn`: Long filename (if different from path name)
 
 Example:
-```
-= / standard=time,fat32
+```hra
+standard=time,fat32
 = /DOCUMENT/REPORT.TXT \
     fat_name=REPORT.TXT \
     fat_attrs=A \
@@ -834,21 +850,19 @@ Example:
     modified=2024-11-12T15:30:00Z
 ```
 
-##### Implementation Notes
+Implementation Notes
+1. FAT32 Specific Considerations:
+  - Time resolution is limited (2-second for modify time, date-only for access)
+  - Case preservation depends on filesystem implementation
+  - 8.3 names must be stored for compatibility
+  - Directory entries may have both short and long names
+1. Standard Limitations:
+  - FAT32 doesn't support ownership
+  - Access time is date-only
+  - No permission bits or ACLs
+  - Limited attribute set compared to modern filesystems
 
-FAT32 Specific Considerations:
-- Time resolution is limited (2-second for modify time, date-only for access)
-- Case preservation depends on filesystem implementation
-- 8.3 names must be stored for compatibility
-- Directory entries may have both short and long names
-
-Standard Limitations:
-- FAT32 doesn't support ownership
-- Access time is date-only
-- No permission bits or ACLs
-- Limited attribute set compared to modern filesystems
-
-#### Multi-Standard Example
+Multi-Standard Example
 ```hra
 standard=posix,hfs+,ntfs3.1
 
@@ -863,14 +877,7 @@ standard=posix,hfs+,ntfs3.1
     ntfs_acl=D:PAI(A;;FA;;;SY)(A;;FA;;;BA)
 ```
 
-#### Implementation Notes
-
-1. POSIX Inheritance:
-   - Standards implementing POSIX compliance inherit all `posix_*` attributes
-   - POSIX attributes are interpreted according to the standard's POSIX compliance level
-   - Standards may extend but not modify
-
-### ext4 (`standard=ext4`)
+#### ext4 (`standard=ext4`)
 
 Attributes
 - `ext4_flags` File and Directory Flags specified with a comma separated list of:
@@ -894,7 +901,7 @@ Attributes
 - `ext4_acl`: POSIX ACLs with ext4 extensions
 
 Example:
-```
+```hra
 = /data/encrypted/ \
     ext4_flags=encrypt,casefold \
     ext4_project=42 \
@@ -904,7 +911,7 @@ Example:
     ext4_flags=sync,immutable \
 ```
 
-### UFS2/FFS (`standard=ufs2`)
+#### UFS2/FFS (`standard=ufs2`)
 
 Attributes
 -`ufs_flags` File Fl
@@ -922,8 +929,8 @@ File Flags (`ufs_flags` as hex or comma-separated list):
 - `ufs_ea`: Extended attributes in UFS2 format
 
 Example:
-```
-= / standard=ufs2
+```hra
+standard=ufs2
 = /var/db/secure/ \
     posix_mode=rwxr-x--- \
     posix_owner=root \
@@ -933,7 +940,7 @@ Example:
     modified=2024-11-12T15:30:00Z
 ```
 
-### CBM DOS (`standard=cbmdos`)
+#### CBM DOS (`standard=cbmdos`)
 
 File Types (`cbm_type` as two-character code):
 - `DEL`: Deleted (scratched)
@@ -949,7 +956,7 @@ File Attributes:
 
 Example:
 ```hra
-= / standard=cbmdos
+standard=cbmdos
 = /games/GAME.PRG \
     cbm_type=PRG \
     cbm_name=GAME
@@ -960,10 +967,9 @@ Example:
     cbm_record=30
 ```
 
-#### Multi-Standard Example
-
+Multi-Standard Example
 ```hra
-= / standard=time,cbmdos,fat32
+standard=time,cbmdos,fat32
 = /games/c64/GAME.PRG \
     cbm_type=PRG \
     cbm_name=GAME \
@@ -972,8 +978,7 @@ Example:
     modified=1984-12-24T12:00:00Z
 ```
 
-#### Implementation Notes
-
+Implementation Notes
 1. File Type Handling:
    - `cbm_type` affects how data should be loaded/used
    - Programs (PRG) start with load address
@@ -995,7 +1000,7 @@ Example:
    - Preserve PETSCII names for authenticity
    - Maintain REL file structure
 
-### Atari DOS (`standard=ataridosii`)
+#### Atari DOS (`standard=ataridosii`)
 
 Attributes:
 - `atari_type` File Type as hex or short name:
@@ -1036,8 +1041,7 @@ Example:
     atari_locked=true
 ```
 
-#### Multi-Standard Example
-
+Multi-Standard Example
 ```hra
 standard=time,ataridosii,fat32
 
@@ -1051,8 +1055,7 @@ standard=time,ataridosii,fat32
     modified=1982-06-15T12:00:00Z
 ```
 
-#### Implementation Notes
-
+Implementation Notes
 1. Type Handling:
    - File type determines required attributes
    - Binary files need load address
@@ -1152,7 +1155,7 @@ Significant for TRS-80 system preservation. Implementation details reserved for 
 ##### CP/M (`standard=cpm`)
 Historically significant early operating system filesystem. Implementation details reserved for future specification.
 
-### Implementation Considerations
+#### Implementation Considerations
 
 When implementing support for any filesystem standard:
 
@@ -1195,7 +1198,7 @@ Each standard's specification should emphasize attributes that:
 Files can include checksums for validation:
 
 Example
-```
+```txt
 checksum=sha256=8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92
 ```
 
@@ -1359,4 +1362,563 @@ Key security considerations:
 7. Verify checksums when provided
 8. Consider the implications of encoded content
 9. Validate all UTF-8 sequences
+
+# Sparse Files (DRAFT PROPOSAL)
+
+> **Note**: This section is a draft proposal for handling sparse files in the HRA format. It is not yet part of the official specification and is provided for discussion purposes only. Implementations should not rely on these attributes until they are formally adopted into the specification.
+
+Sparse files, which contain sequences of zero bytes that aren't physically stored on disk, present unique challenges for archival. This proposal outlines a standard for preserving sparse file information and efficient storage.
+
+Implementation Notes:
+1. Extraction Behavior:
+   - Implementations should create sparse files when supported by the target filesystem
+   - On filesystems without sparse file support, zero regions must be fully written
+   - Block size alignment should be preserved where possible
+
+2. Storage Considerations:
+   - Only non-zero regions need to be stored in the archive
+   - The sparse map provides reconstruction information
+   - Tools should verify sparse_map entries align with sparse_blocks
+
+3. Validation Requirements:
+   - All offsets and lengths must be multiples of sparse_blocks
+   - sparse_map regions must not overlap
+   - sparse_map offsets must be in ascending order
+   - Total mapped size must not exceed sparse_size
+
+# Case Sensitivity in Paths (DRAFT PROPOSAL)
+
+This section is completely computer generated and unreviewed.
+I only plan on working on this if it is actually problematic.
+
+> **Note**: This section is a draft proposal for ensuring compatibility, reproducibility, and ambiguity of case sensitive and insensitive file systems in the HRA format. It is not yet part of the official specification and is provided for discussion purposes only. Implementations should not rely on these attributes until they are formally adopted into the specification.
+
+## Abstract
+
+This proposal defines standard behavior for handling case sensitivity in file and directory paths within Human Readable Archive (HRA) files. It addresses the challenges of cross-platform compatibility between case-sensitive and case-insensitive filesystems.
+
+## Background
+
+File systems differ in their handling of case sensitivity:
+- Case-sensitive: Treats `file.txt` and `FILE.txt` as distinct files (e.g., Linux ext4)
+- Case-insensitive: Treats `file.txt` and `FILE.txt` as the same file (e.g., Windows NTFS)
+- Case-preserving: Maintains case in filenames but treats different cases as same file
+
+This variance creates challenges when:
+1. Creating archives on one system type for use on another
+2. Validating archive integrity across platforms
+3. Extracting archives to different filesystem types
+
+## Proposal
+
+#### 1. Path Normalization
+
+##### 1.1 Canonical Form
+
+All paths in HRA files MUST be normalized to a canonical form before uniqueness validation:
+
+```
+normalized_path = unicode_normalize(remove_duplicate_separators(absolute_path))
+```
+
+Where:
+- `unicode_normalize`: Applies Unicode NFKC normalization
+- `remove_duplicate_separators`: Replaces multiple '/' with single '/'
+- `absolute_path`: Full path starting with '/'
+
+##### 1.2 Case Comparison Form
+
+For case-insensitive comparison, paths MUST be converted to a case-folded form:
+
+```
+case_folded_path = unicode_case_fold(normalized_path)
+```
+
+#### 2. Validation Requirements
+
+##### 2.1 Strict Validation
+
+Implementations MUST:
+1. Detect paths that differ only by case
+2. Identify the target system's case sensitivity
+3. Report conflicts during validation phase
+
+##### 2.2 Validation Modes
+
+Implementations MUST support these validation modes:
+
+1. **Strict Mode** (Default)
+   - Reject archives with case conflicts
+   - Return error code `ECASE_CONFLICT`
+   - List all conflicting paths
+
+2. **Warning Mode**
+   - Allow case conflicts
+   - Log detailed warnings
+   - Continue processing
+
+3. **Auto-resolve Mode**
+   - Automatically rename conflicting files
+   - Document changes in metadata
+   - Continue processing
+
+#### 3. Conflict Resolution
+
+##### 3.1 Resolution Strategies
+
+When operating in Auto-resolve Mode, implementations MUST support these strategies:
+
+1. **Suffix Strategy** (Default)
+   ```
+   file.txt  file.txt
+   FILE.txt  file_1.txt
+   File.txt  file_2.txt
+   ```
+
+2. **Preserve Strategy**
+   - Create platform-specific escape sequences
+   - Document in metadata
+   ```
+   file.txt   file.txt
+   FILE.txt   file{UPPER}.txt
+   File.txt   file{Title}.txt
+   ```
+
+3. **Last-Wins Strategy**
+   - Keep only the last occurrence
+   - Log skipped entries
+
+##### 3.2 Resolution Metadata
+
+Implementations MUST record case resolutions in metadata:
+
+```hra
+= /.hra-meta/case-resolution.txt
+original_path=FILE.txt
+resolved_path=file_1.txt
+resolution_strategy=suffix
+timestamp=2024-11-14T12:00:00Z
+```
+
+#### 4. Implementation Requirements
+
+##### 4.1 Required Capabilities
+
+Implementations MUST:
+1. Support all validation modes
+2. Support all resolution strategies
+3. Provide configuration options
+4. Maintain resolution logs
+5. Document their default behavior
+
+##### 4.2 Configuration Options
+
+Minimum required options:
+```
+--case-sensitivity=(strict|warning|auto)
+--resolution-strategy=(suffix|preserve|last-wins)
+--case-aware=(true|false|auto)
+```
+
+##### 4.3 Error Handling
+
+Standard error codes:
+```
+ECASE_CONFLICT    = 100  // Case conflict detected
+ECASE_RESOLVE     = 101  // Resolution failure
+ECASE_UNSUPPORTED = 102  // Case handling not supported
+```
+
+#### 5. Examples
+
+##### 5.1 Conflict Detection
+```hra
+= /docs/readme.txt
+This is version 1
+
+= /docs/README.txt
+This is version 2
+
+// Validation output:
+Error: Case conflict detected
+  Path 1: /docs/readme.txt (line 1)
+  Path 2: /docs/README.txt (line 4)
+```
+
+##### 5.2 Auto-resolution
+```hra
+= /docs/readme.txt
+Original content
+
+= /docs/README.txt
+Different content
+
+// Resolution output (with suffix strategy):
+Created: /docs/readme.txt
+Created: /docs/readme_1.txt
+Resolution logged to /.hra-meta/case-resolution.txt
+```
+
+##### 5.3 Platform-specific Metadata
+```hra
+= /.hra-meta/platform.txt
+case_sensitive=false
+filesystem=NTFS
+resolution_strategy=suffix
+```
+
+## Backwards Compatibility
+
+This proposal maintains backwards compatibility:
+1. Existing archives remain valid
+2. New behavior only triggers on case conflicts
+3. Default strict mode preserves current expectations
+4. Metadata additions are optional
+
+## Security Considerations
+
+Implementations MUST:
+1. Prevent path traversal via case variants
+2. Validate all generated filenames
+3. Limit automatic rename iterations
+4. Verify resolution metadata integrity
+5. Sanitize logged paths
+
+## Future Considerations
+
+1. Extended attributes for case preferences
+2. Unicode normalization options
+3. Custom resolution strategies
+4. Network filesystem handling
+5. Cloud storage compatibility
+
+## References
+
+1. POSIX filename specifications
+2. Windows naming conventions
+3. Unicode Technical Standard #10
+4. Filesystem case sensitivity documentation
+
+# Timezone Configuration (DRAFT PROPOSAL)
+Version: 0.1
+
+**NOTICE: This is an unreviewed, AI-generated draft proposal that requires thorough error checking and validation before consideration.**
+
+## Overview
+Add timezone configuration support to the HRA format to provide timezone information for the archive content.
+
+## Motivation
+Timezone information is fundamental to timestamp representation. Including it in the archive configuration allows:
+1. Simplified timestamp representation in attributes by making the timezone implicit
+2. Clear documentation of the temporal context for archive content
+3. Single source of truth for timezone interpretation
+
+## Specification
+
+### Header Line Addition
+Add optional `timezone=` to the archive configuration line (line 4). The value must be an ISO 8601 timezone offset.
+
+#### Syntax
+```
+timezone={+|-}HHMM|Z
+```
+Where:
+- `{+|-}`: Mandatory plus or minus sign (except for Z)
+- `HH`: Hours (00-23)
+- `MM`: Minutes (00-59) 
+- `Z`: Special case indicating UTC (Zulu time)
+
+#### Examples
+```hra
+Human Readable
+Archive
+0.1
+meta= comment# timezone=+0500
+```
+
+```hra
+Human Readable
+Archive
+0.1
+meta= comment# timezone=-0800 escape\ opener"
+```
+
+```hra
+Human Readable
+Archive
+0.1
+meta= comment# timezone=Z
+```
+
+### Timestamp Formats
+With timezone defined in the archive header, attribute timestamps may be specified in two formats:
+
+1. Full ISO 8601 with explicit timezone (existing format):
+```hra
+modified=2024-01-15T14:30:00-0500
+```
+
+2. Implicit timezone format (new option):
+```hra
+modified=2024-01-15T14:30:00
+```
+Which inherits timezone from archive configuration.
+
+### Behavior
+1. Timestamps with explicit timezone information use their specified timezone
+2. Timestamps without timezone information use the archive's configured timezone
+3. If no timezone is configured in the archive:
+   - Implementations MUST assume UTC
+   - Implementations MUST require explicit timezone in all timestamps
+
+### Validation
+1. The timezone value MUST match the ISO 8601 timezone offset format:
+   - `Z` or
+   - `+` or `-` followed by exactly 4 digits representing a valid hour (00-23) and minute (00-59)
+2. Invalid timezone values MUST cause validation failure
+
+### Migration
+1. Existing archives without timezone configuration implicitly default to UTC
+2. Archive processors MUST require explicit timezone in timestamps when processing archives without timezone configuration
+
+## Rationale
+1. ISO 8601 timezone offset format chosen because:
+   - Matches timestamp format already used in the specification
+   - Universally supported by ISO 8601 implementations
+   - No external dependencies like IANA timezone database
+   - Human readable
+   - Compact representation
+
+2. UTC default chosen because:
+   - Most widely used timezone for data interchange
+   - Zero offset simplifies implementation
+   - Matches common practice
+
+## Implementation Notes
+1. Implementations MUST validate timezone format
+2. Implementations MUST validate all timestamps conform to either format
+3. Implementations SHOULD optimize timestamp storage when using implicit format
+
+## Examples
+
+### Mixed Format Example
+```hra
+Human Readable
+Archive
+0.1
+meta= comment# timezone=+0900
+= /explicit.txt modified=2024-01-15T14:30:00Z      # Uses explicit UTC
+= /implicit.txt modified=2024-01-15T14:30:00       # Uses archive timezone
+```
+
+## Discussion Points
+1. Should we allow timezone changes within an archive via redefinition?
+2. Should we require all timestamps in an archive to use the same format?
+3. Should we add format validation flags for consistency enforcement?
+
+## Alternatives Considered
+1. IANA timezone names
+   - Rejected due to unnecessary dependency
+2. Requiring all timestamps use archive timezone
+   - Rejected for compatibility with existing files
+3. Multiple timezone formats
+   - Rejected for complexity vs benefit
+
+## Future Considerations
+1. Timezone-specific metadata storage
+2. Format validation flags
+3. Redefinition rules
+
+# File Extensions and Compression (DRAFT PROPOSAL)
+Version: 0.1
+
+**NOTICE: This is a draft proposal for standardizing file extensions and compression handling for the HRA format.**
+
+## Overview
+Define standard file extensions for Human Readable Archive files and establish conventions for handling external compression.
+
+## Primary Extension
+The canonical file extension for uncompressed Human Readable Archive files is:
+```
+.hra
+```
+
+## Compressed Archives
+While the HRA format itself does not support internal compression to maintain human readability, it is designed to work well with external compression tools. For compressed HRA files, use these standard extensions:
+
+### Unix-style Extensions
+Standard compression extensions follow the pattern `.hra.{compression}`
+
+#### Primary Formats (Widely Supported)
+- `.hra.gz`  - gzip (GNU Zip)
+- `.hra.bz2` - bzip2 compression
+- `.hra.xz`  - xz (LZMA2)
+- `.hra.zst` - Zstandard compression
+- `.hra.br`  - Brotli compression
+
+#### Additional Formats
+- `.hra.Z`    - compress (traditional Unix)
+- `.hra.lz`   - lzip
+- `.hra.lz4`  - LZ4
+- `.hra.lzo`  - LZO
+- `.hra.lrz`  - LRZIP
+- `.hra.rz`   - rzip
+- `.hra.lzma` - Legacy LZMA
+- `.hra.zpaq` - ZPAQ
+- `.hra.sz`   - SZIP
+- `.hra.zz`   - ZZip
+
+### Windows-style Extensions
+Standard compression extensions follow the pattern `.hra{compression}`
+
+#### Primary Formats
+- `.hraz`   - ZIP (standard Windows zip)
+- `.hra7z`  - 7-Zip
+- `.hrary`  - RAR (proprietary)
+- `.hracab` - Microsoft Cabinet
+
+#### Additional Formats
+- `.hraarj` - ARJ
+- `.hraarc` - ARC
+- `.hralha` - LHA/LZH
+- `.hraace` - ACE (proprietary)
+- `.hrakgb` - KGB Archiver
+- `.hrapaq` - PAQ series
+- `.hrauha` - UHA
+- `.hrawim` - Windows Imaging Format
+
+### DOS-style Extensions
+Standard compression extensions follow the pattern `.HR{compression}` (uppercase by convention)
+
+#### Primary Formats
+- `.HRZ` - PKZIP (DOS standard zip)
+- `.HRA` - ARC (earliest DOS archiver)
+- `.HRL` - LHA/LHARC (popular in DOS/Japan)
+- `.HRJ` - ARJ (efficient DOS archiver)
+- `.HR$` - SQZ (Squeeze)
+- `.HRQ` - QEMM squeeze
+- `.HRU` - UPS/File Express
+- `.HRY` - Young Chang
+- `.HR1` - `.HR9` - PAK series
+
+#### Legacy Formats
+- `.HRD` - DWC
+- `.HRH` - HAP
+- `.HRK` - KBoom
+- `.HRM` - MDC
+- `.HRN` - NOW
+- `.HRP` - PGSC
+- `.HRS` - BSC/BSA
+- `.HRT` - TCP
+- `.HRX` - eXpress
+- `.HR#` - DIET (self-extracting)
+
+## Format Detection
+
+### Magic Numbers
+- 7-Zip: `37 7A BC AF 27 1C`
+- ACE: `2A 2A 41 43 45 2A 2A`
+- ARJ: `60 EA`
+- Brotli: `CE B2 CF 81`
+- GZIP: `1F 8B`
+- PKZIP/ZIP: 
+  - Standard files: `50 4B 03 04`
+  - Empty archive: `50 4B 05 06`
+  - Spanned archive: `50 4B 07 08`
+- RAR:
+  - RAR4: `52 61 72 21 1A 07 00`
+  - RAR5: `52 61 72 21 1A 07 01 00`
+- bzip2: `42 5A 68`
+- xz: `FD 37 7A 58 5A 00`
+- Microsoft Cabinet: `4D 53 43 46 00 00 00 00`
+- Windows Imaging Format: `4D 53 57 49 4D 00 00 00`
+
+### File Headers/Signatures
+- LHA/LZH: `-lh0-` to `-lh7-` header types
+- LZMA: `5D 00 00` (raw LZMA)
+- Zstandard: `28 B5 2F FD`
+
+### Additional Format Identification
+- ARC: First byte typically 0x1A
+- BSA: Commonly found in Bethesda games
+- LZ4: Frame descriptor at start
+- LRZIP: LRZIP header structure
+- PAQ series: Version number in filename
+- ZPAQ: ZPAQ block headers
+- rzip: Compression block structure
+- UHA: Version identifier in header
+- DIET: DOS executable with DIET signature
+
+## Implementation Requirements
+
+### Compression Detection
+Implementations MUST:
+1. Support reading uncompressed `.hra` files
+2. Detect compressed formats through both:
+   - File extension matching
+   - Magic number verification when available
+3. Provide clear error messages when compression support is not available
+
+### Compression Support
+Implementations SHOULD:
+1. Support reading at least the primary formats for their platform
+2. Document which compression formats are supported
+3. Provide configuration options for compression preferences
+4. Handle decompression transparently when supported
+
+Implementations MAY:
+1. Support writing compressed archives
+2. Support additional compression formats
+3. Provide compression level options
+4. Cache decompressed content for performance
+
+## Examples
+
+### Command Line Usage
+```bash
+# Creating archives
+hra create archive.hra
+hra create - | gzip > archive.hra.gz
+
+# Reading archives
+hra read archive.hra
+zcat archive.hra.gz | hra read -
+```
+
+### Implementation Example
+```python
+def detect_format(filename, header):
+    """Detect HRA format and compression"""
+    if header.startswith(b'Human'):
+        return 'hra'
+    elif header.startswith(b'\x1f\x8b'):
+        return 'gzip'
+    elif header.startswith(b'BZh'):
+        return 'bzip2'
+    # ... additional format checks ...
+    
+    raise UnsupportedFormatError(f"Unknown or unsupported format: {filename}")
+```
+
+## Security Considerations
+
+Implementations MUST:
+1. Validate magic numbers before decompression
+2. Set reasonable decompression size limits
+3. Handle decompression errors gracefully
+4. Scan for compression bombs
+5. Verify file integrity after decompression
+6. Validate all file paths after decompression
+7. Check for unusual compression ratios
+8. Implement timeouts for decompression operations
+
+## Future Considerations
+
+1. Standard compression level recommendations
+2. Streaming support guidelines
+3. Multi-file archive handling
+4. Additional compression format support
+5. Content verification methods
+6. Legacy format preservation guidelines
+7. Platform-specific optimization recommendations
 
