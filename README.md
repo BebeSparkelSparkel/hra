@@ -1944,3 +1944,272 @@ Implementations MUST:
 6. Legacy format preservation guidelines
 7. Platform-specific optimization recommendations
 
+# Link Standard (DRAFT PROPOSAL) (standard=link)
+Version: 0.1
+
+**NOTICE: This is an unreviewed ai generated draft proposal for standardizing file and directory linking attributes in the Human Readable Archive (HRA) format.**
+
+## Overview
+Define standard attributes for representing various types of file and directory links, including symbolic links, hard links, and mount points across different file systems.
+
+## Motivation
+File systems support various linking mechanisms that are essential for:
+1. File organization and space efficiency
+2. System configuration and administration
+3. Cross-platform compatibility
+4. Resource sharing and access
+
+## Link Types and Attributes
+
+### Symbolic Links (`symlink`)
+Attributes for symbolic (soft) links:
+- `symlink_target`: Path to the target file or directory
+- `symlink_relative`: Boolean indicating if the path is relative (true) or absolute (false)
+- `symlink_type`: Type of target ("file", "directory", "unknown")
+
+Example:
+```hra
+= /usr/local/bin/python symlink_target=/usr/bin/python3 symlink_relative=false symlink_type=file
+```
+
+### Hard Links (`hardlink`)
+Attributes for hard links:
+- `hardlink_target`: Path to the original file
+- `hardlink_inode`: Optional inode number for verification
+- `hardlink_count`: Optional link count for verification
+
+Example:
+```hra
+= /home/user/document.txt hardlink_target=/shared/documents/original.txt hardlink_inode=12345
+```
+
+### Mount Points (`mount`)
+Attributes for filesystem mount points:
+- `mount_type`: Mount type (e.g., "bind", "overlay", "union")
+- `mount_source`: Source path or device
+- `mount_options`: Mount options as comma-separated list
+- `mount_fstype`: Filesystem type
+
+Example:
+```hra
+= /mnt/data mount_type=bind mount_source=/storage/data mount_options=ro,noexec mount_fstype=none
+```
+
+### Junction Points (`junction`)
+Attributes for Windows-style junction points:
+- `junction_target`: Target directory path
+- `junction_type`: Type of junction ("directory", "volume")
+
+Example:
+```hra
+= "C:/Users/All Users" junction_target="C:/ProgramData" junction_type=directory
+```
+
+### Shortcuts (`shortcut`)
+Attributes for platform-specific shortcut files:
+- `shortcut_target`: Target path
+- `shortcut_args`: Optional command line arguments
+- `shortcut_desc`: Optional description
+- `shortcut_icon`: Optional icon path
+- `shortcut_workdir`: Optional working directory
+
+Example:
+```hra
+= /Desktop/editor.desktop \
+    shortcut_target=/usr/bin/code \
+    shortcut_args="--new-window" \
+    shortcut_desc="Visual Studio Code" \
+    shortcut_workdir=/home/user/projects
+```
+
+## Implementation Requirements
+
+### Link Creation
+Implementations MUST:
+1. Validate link target existence (when possible)
+2. Verify link creation permissions
+3. Handle recursive links safely
+4. Preserve link attributes during archive creation
+5. Support platform-specific link types
+
+### Link Resolution
+Implementations MUST:
+1. Resolve symbolic links safely
+2. Handle broken links gracefully
+3. Prevent link cycles
+4. Respect filesystem boundaries
+5. Maintain link chains when possible
+
+### Security Considerations
+Implementations MUST:
+1. Validate all link targets
+2. Prevent path traversal attacks
+3. Respect filesystem permissions
+4. Handle dangling links safely
+5. Limit link chain depth
+6. Verify link types match declarations
+
+## Platform-Specific Behavior
+
+### Unix-like Systems
+1. Symbolic Links:
+   - Use native symlinks when available
+   - Fall back to copy when symlinks not supported
+   - Preserve relative/absolute path choice
+
+2. Hard Links:
+   - Create only within same filesystem
+   - Verify inode numbers when provided
+   - Update link counts appropriately
+
+### Windows Systems
+1. Symbolic Links:
+   - Require appropriate privileges
+   - Use native symlinks when available
+   - Fall back to shortcuts when necessary
+
+2. Junction Points:
+   - Directory-only target restriction
+   - Local volume requirement
+   - Administrator privileges check
+
+### General Requirements
+1. Cross-platform Compatibility:
+   - Document platform limitations
+   - Provide fallback mechanisms
+   - Preserve link metadata
+
+2. Error Handling:
+   - Report unsupported link types
+   - Handle permission issues gracefully
+   - Provide clear error messages
+
+## Validation Rules
+
+### Link Target Validation
+1. Path Checks:
+   - No traversal sequences
+   - Normalized paths only
+   - Valid characters only
+
+2. Type Checks:
+   - Target type matches declaration
+   - Valid filesystem type
+   - Supported link type
+
+3. Permission Checks:
+   - Link creation allowed
+   - Target readable
+   - Source writable
+
+### Attribute Validation
+1. Required Attributes:
+   - Link target must be specified
+   - Link type must be valid
+   - Mount points need source
+
+2. Optional Attributes:
+   - Verify format when present
+   - Ignore if unsupported
+   - Warn on platform mismatch
+
+## Examples
+
+### Basic Link Examples
+```hra
+# Symbolic link with relative path
+= /home/user/docs/current symlink_target=../archive/2024 symlink_relative=true symlink_type=directory
+
+# Hard link to shared resource
+= /etc/alternatives/java \
+    hardlink_target=/usr/lib/jvm/java-11/bin/java \
+    hardlink_inode=45678
+
+# Mount point with options
+= /mnt/backup \
+    mount_type=bind \
+    mount_source=/storage/backup \
+    mount_options=ro,noatime \
+    mount_fstype=none
+
+# Windows junction point
+= "C:/Users/Public" \
+    junction_target="D:/SharedData" \
+    junction_type=directory
+
+# Application shortcut
+= "Desktop/Browser.lnk" \
+    shortcut_target="C:/Program Files/Browser/browser.exe" \
+    shortcut_args="--private" \
+    shortcut_desc="Private Browsing" \
+    shortcut_workdir="%USERPROFILE%"
+```
+
+### Complex Scenarios
+```hra
+# Chain of symbolic links
+= /usr/local/current symlink_target=versions/latest symlink_relative=true
+= /usr/local/versions/latest symlink_target=1.2.3 symlink_relative=true
+
+# Overlay mount with multiple sources
+= /var/www \
+    mount_type=overlay \
+    mount_source=lowerdir=/readonly/www:upperdir=/writeable/www \
+    mount_options=ro \
+    mount_fstype=overlay
+
+# Development environment links
+= /opt/tools/current \
+    symlink_target=/opt/tools/stable \
+    symlink_relative=false \
+    symlink_type=directory
+
+= /opt/tools/stable \
+    symlink_target=/opt/tools/2.0.0 \
+    symlink_relative=false \
+    symlink_type=directory
+```
+
+## Migration Guidelines
+
+### From Existing Archives
+1. Identify existing link patterns
+2. Convert to standardized attributes
+3. Validate converted links
+4. Document changes
+
+### To Newer Versions
+1. Preserve backward compatibility
+2. Support attribute updates
+3. Provide conversion tools
+4. Document new features
+
+## Future Considerations
+
+1. Extended Attributes:
+   - Access control lists
+   - Extended metadata
+   - Platform-specific flags
+
+2. New Link Types:
+   - Network links
+   - Cloud storage links
+   - Virtual filesystem links
+
+3. Enhanced Security:
+   - Link verification
+   - Chain validation
+   - Permission mapping
+
+4. Platform Support:
+   - Additional systems
+   - New link types
+   - Filesystem features
+
+## References
+
+1. POSIX symbolic link specification
+2. Windows junction point documentation
+3. Linux mount namespace documentation
+4. File system linking best practices
+
