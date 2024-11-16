@@ -440,6 +440,22 @@ All implementations must support UTF-8 encoding to ensure universal compatibilit
 The parser MUST validate that all text in the archive is valid UTF-8 according to RFC 3629.
 This strict validation ensures archive consistency and prevents any ambiguity about the stored data.
 
+## File Extension
+
+The canonical file extension for an uncompressed Human Readable Archive files is `.hra`.
+
+## MIME Type 
+
+The official MIME type for Human Readable Archive files is:
+```mime
+application/x-human-readable-archive 
+```
+
+The MIME type follows these conventions:
+1. Uses the `application` top-level type as it represents a specific file format
+2. Uses the `x-` prefix to denote it is not (yet) registered with IANA 
+3. Uses lowercase hyphenated name following common MIME type naming practices
+
 ## String Bracketing
 
 The HRA format supports string bracketing to allow the inclusion of spaces and other special characters.
@@ -1367,6 +1383,8 @@ Key security considerations:
 
 > **Note**: This section is a draft proposal for handling sparse files in the HRA format. It is not yet part of the official specification and is provided for discussion purposes only. Implementations should not rely on these attributes until they are formally adopted into the specification.
 
+**NOTICE: This is an unreviewed, AI-generated draft proposal that requires thorough error checking and validation before consideration.**
+
 Sparse files, which contain sequences of zero bytes that aren't physically stored on disk, present unique challenges for archival. This proposal outlines a standard for preserving sparse file information and efficient storage.
 
 Implementation Notes:
@@ -1392,6 +1410,8 @@ This section is completely computer generated and unreviewed.
 I only plan on working on this if it is actually problematic.
 
 > **Note**: This section is a draft proposal for ensuring compatibility, reproducibility, and ambiguity of case sensitive and insensitive file systems in the HRA format. It is not yet part of the official specification and is provided for discussion purposes only. Implementations should not rely on these attributes until they are formally adopted into the specification.
+
+**NOTICE: This is an unreviewed, AI-generated draft proposal that requires thorough error checking and validation before consideration.**
 
 ## Abstract
 
@@ -1733,6 +1753,8 @@ meta= comment# timezone=+0900
 Version: 0.1
 
 **NOTICE: This is a draft proposal for standardizing file extensions and compression handling for the HRA format.**
+
+**NOTICE: This is an unreviewed, AI-generated draft proposal that requires thorough error checking and validation before consideration.**
 
 ## Overview
 Define standard file extensions for Human Readable Archive files and establish conventions for handling external compression.
