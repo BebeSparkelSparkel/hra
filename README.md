@@ -148,7 +148,7 @@ MIT License...
 ; The meta definition ends when the last line does not have an ending back slash.
 @ /multiple/line/ \
     perm=rwxrwxrwx \
-    atime=2024/11/4-10:47:44
+    atime=2024-11-04T10:47:44Z
 ```
 
 ## Format
@@ -752,7 +752,7 @@ No implementation is required to support any standard, but implementations may:
 
 #### Time (`standard=time`)
 
-Values are formatted in ISO 8601 with required timezone
+Values are formatted in RFC 3339 with required timezone
 
 Attributes
 - `created`: Creation timestamp
@@ -862,7 +862,7 @@ standard=time,fat32
     fat_case=lower_base,lower_ext \
     fat_lfn=Quarterly Report.txt \
     created=2024-11-12T15:30:00Z \
-    accessed=2024-11-12 \
+    accessed=2024-11-12T00:00:00Z
     modified=2024-11-12T15:30:00Z
 ```
 
@@ -1636,11 +1636,11 @@ Timezone information is fundamental to timestamp representation. Including it in
 ## Specification
 
 ### Header Line Addition
-Add optional `timezone=` to the archive configuration line (line 4). The value must be an ISO 8601 timezone offset.
+Add optional `timezone=` to the archive configuration line (line 4). The value must be an RFC 3339 timezone offset.
 
 #### Syntax
 ```
-timezone={+|-}HHMM|Z
+timezone={+|-}HH:MM|Z
 ```
 Where:
 - `{+|-}`: Mandatory plus or minus sign (except for Z)
@@ -1653,14 +1653,14 @@ Where:
 Human Readable
 Archive
 0.1
-meta= comment# timezone=+0500
+meta= comment# timezone=+05:00
 ```
 
 ```hra
 Human Readable
 Archive
 0.1
-meta= comment# timezone=-0800 escape\ opener"
+meta= comment# timezone=-08:00 escape\ opener"
 ```
 
 ```hra
@@ -1673,9 +1673,9 @@ meta= comment# timezone=Z
 ### Timestamp Formats
 With timezone defined in the archive header, attribute timestamps may be specified in two formats:
 
-1. Full ISO 8601 with explicit timezone (existing format):
+1. Full RFC 3339 with explicit timezone (existing format):
 ```hra
-modified=2024-01-15T14:30:00-0500
+modified=2024-01-15T14:30:00-05:00
 ```
 
 2. Implicit timezone format (new option):
@@ -1692,9 +1692,9 @@ Which inherits timezone from archive configuration.
    - Implementations MUST require explicit timezone in all timestamps
 
 ### Validation
-1. The timezone value MUST match the ISO 8601 timezone offset format:
+1. The timezone value MUST match the RFC 3339 timezone offset format:
    - `Z` or
-   - `+` or `-` followed by exactly 4 digits representing a valid hour (00-23) and minute (00-59)
+   - `+` or `-` followed by HH:MM format where HH is a valid hour (00-23) and MM is minutes (00-59)
 2. Invalid timezone values MUST cause validation failure
 
 ### Migration
@@ -1702,9 +1702,9 @@ Which inherits timezone from archive configuration.
 2. Archive processors MUST require explicit timezone in timestamps when processing archives without timezone configuration
 
 ## Rationale
-1. ISO 8601 timezone offset format chosen because:
+1. RFC 3339 timezone offset format chosen because:
    - Matches timestamp format already used in the specification
-   - Universally supported by ISO 8601 implementations
+   - Universally supported by RFC 3339 implementations
    - No external dependencies like IANA timezone database
    - Human readable
    - Compact representation
@@ -1726,7 +1726,7 @@ Which inherits timezone from archive configuration.
 Human Readable
 Archive
 0.1
-meta= comment# timezone=+0900
+meta= comment# timezone=+09:00
 = /explicit.txt modified=2024-01-15T14:30:00Z      # Uses explicit UTC
 = /implicit.txt modified=2024-01-15T14:30:00       # Uses archive timezone
 ```
